@@ -537,6 +537,52 @@
   appId: "1:793028948713:web:05e710fb766b76f6f87678",
   measurementId: "G-DXHKVSJRXJ"
 };
+// 1. Firebase 초기화 및 데이터베이스 연결
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // 2. 페이지가 열리면 DB에서 실시간으로 댓글을 불러와 화면에 표시
+  window.onload = function() {
+    db.ref('comments').on('value', (snapshot) => {
+      const data = snapshot.val();
+      let comments = [];
+
+      if (data) {
+        // 데이터를 배열로 변환
+        Object.keys(data).forEach((key) => {
+          comments.push({ id: key, ...data[key] });
+        });
+        // 최신순 정렬
+        comments.sort((a, b) => b.timestamp - a.timestamp);
+      }
+
+      renderComments(comments);
+    });
+  };
+
+  // 3. 댓글 작성 및 파이어베이스 DB에 저장하는 기능
+  function addComment() {
+    const nameInput = document.getElementById('author-name');
+    const textInput = document.getElementById('comment-text');
+    const author = nameInput.value.trim();
+    const text = textInput.value.trim();
+
+    if (!author || !text) {
+      alert('이름과 한마디 내용을 모두 입력해주세요!');
+      return;
+    }
+
+    // 데이터베이스로 댓글 저장
+    db.ref('comments').push({
+      author: author,
+      text: text,
+      timestamp: Date.now(),
+      date: new Date().toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    }).then(() => {
+      nameInput.value = '';
+      textInput.value = '';
+    });
+  }
   </script>
 </body>
 </html>
