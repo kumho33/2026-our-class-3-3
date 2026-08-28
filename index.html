@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>그해, 3학년 3반 - 게시물 & 채팅방</title>
+  <title>2026 3-3 - 게시물 & 채팅방 & 설문조사</title>
   
-  <!-- Firebase SDK (v8) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
@@ -56,27 +55,41 @@
     header h1 { font-size: 1.5rem; color: #111; }
     .user-badge { font-size: 0.85rem; color: #0095f6; font-weight: bold; margin-top: 2px; }
 
-    /* 페이지 제어 */
+    /* 페이지 제어 및 네비게이션 */
     .page-content { display: none; }
     .page-content.active { display: block; }
 
     .nav-bar {
       display: flex; justify-content: space-between; align-items: center;
-      background: #fff; padding: 12px 16px; border-radius: 14px;
+      background: #fff; padding: 10px 14px; border-radius: 14px;
       box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 15px;
-      border: 1px solid #dbdbdb;
+      border: 1px solid #dbdbdb; gap: 4px;
     }
-    .nav-title { font-weight: bold; font-size: 0.95rem; color: #262626; }
+    .nav-title { font-weight: bold; font-size: 0.9rem; color: #262626; white-space: nowrap; }
+    .nav-btn-group { display: flex; gap: 4px; }
     .nav-arrow-btn {
-      background: #efefef; border: none; padding: 6px 12px;
-      border-radius: 18px; font-size: 0.8rem; font-weight: bold;
-      color: #262626; cursor: pointer;
+      background: #efefef; border: none; padding: 6px 10px;
+      border-radius: 14px; font-size: 0.75rem; font-weight: bold;
+      color: #262626; cursor: pointer; white-space: nowrap;
+    }
+    .nav-arrow-btn.active { background: #0095f6; color: #fff; }
+
+    /* 정렬 필터 버튼 (PAGE 1 전용) */
+    .sort-filter-bar {
+      display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 12px;
+    }
+    .sort-btn {
+      background: #fff; border: 1px solid #dbdbdb; padding: 5px 10px;
+      border-radius: 16px; font-size: 0.75rem; color: #666; cursor: pointer; font-weight: 600;
+    }
+    .sort-btn.active {
+      background: #262626; color: #fff; border-color: #262626;
     }
 
     /* 📸 게시물 작성 카드 */
     .create-post-card {
       background: #fff; border: 1px solid #dbdbdb; border-radius: 12px;
-      padding: 15px; margin-bottom: 20px;
+      padding: 15px; margin-bottom: 15px;
     }
     .create-post-card textarea {
       width: 100%; border: 1px solid #efefef; border-radius: 8px;
@@ -172,61 +185,69 @@
       background: #b2c7da; border-radius: 16px; padding: 12px;
       display: flex; flex-direction: column; height: 500px;
     }
+
+    /* 채팅방 상단 헤더 & 공지사항 바 */
+    .chat-header-bar {
+      display: flex; align-items: center; gap: 8px;
+      background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px);
+      padding: 8px 12px; border-radius: 10px; margin-bottom: 8px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+    }
+    .pin-notice-btn {
+      background: #fff; border: 1px solid #ddd; border-radius: 8px;
+      padding: 4px 8px; font-size: 0.8rem; font-weight: bold;
+      cursor: pointer; display: flex; align-items: center; gap: 4px;
+      white-space: nowrap; flex-shrink: 0;
+    }
+    .pin-notice-btn:hover { background: #f0f0f0; }
+    .chat-notice-text {
+      flex: 1; font-size: 0.82rem; color: #222; font-weight: 500;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
     .chat-messages {
       flex: 1; overflow-y: auto; display: flex; flex-direction: column;
-      gap: 10px; padding: 5px;
+      gap: 6px; padding: 5px;
     }
     
     .msg-group {
-      display: flex; flex-direction: column; max-width: 80%;
-      width: fit-content;
+      display: flex; flex-direction: column; max-width: 80%; width: fit-content;
     }
     .msg-group.my-msg { align-self: flex-end; align-items: flex-end; }
     .msg-group.other-msg { align-self: flex-start; align-items: flex-start; }
-    
-    .msg-author { font-size: 0.72rem; color: #444; margin-bottom: 3px; font-weight: 500; }
+    .msg-author { font-size: 0.72rem; color: #444; margin-bottom: 2px; font-weight: 500; }
 
     .msg-bubble-wrap {
-      display: flex; align-items: flex-end; gap: 6px; width: fit-content; max-width: 100%;
+      display: flex; align-items: flex-end; gap: 4px; width: fit-content; max-width: 100%;
     }
     .my-msg .msg-bubble-wrap { flex-direction: row-reverse; }
 
-    /* 💬 말풍선 CSS 수정: 여백 완전 제거 및 피팅 */
     .msg-bubble {
-      padding: 6px 10px !important;
-      min-height: unset !important;
-      height: fit-content !important;
-      line-height: 1.3 !important;
-      border-radius: 12px; font-size: 0.85rem;
-      word-break: break-word; white-space: pre-wrap;
-      display: inline-block; max-width: 100%;
-      margin: 0 !important;
+      padding: 6px 10px !important; margin: 0 !important;
+      min-height: 0 !important; height: auto !important; line-height: 1.35 !important;
+      border-radius: 12px; font-size: 0.85rem; word-break: break-word; white-space: pre-wrap;
+      display: inline-block; max-width: 100%; box-sizing: border-box;
     }
     .my-msg .msg-bubble { background: #ffeb33; color: #222; border-top-right-radius: 2px; }
     .other-msg .msg-bubble { background: #fff; color: #222; border-top-left-radius: 2px; }
 
     .msg-btn-group {
-      display: flex; flex-direction: row; align-items: flex-end; gap: 4px;
-      height: fit-content;
+      display: flex; flex-direction: row; align-items: flex-end; gap: 2px;
+      height: fit-content; margin-bottom: 1px;
     }
 
-    /* 🌟 인용구 박스: 비어있으면 아예 화면에서 숨김 */
     .reply-quote-box {
       background: rgba(0, 0, 0, 0.08); border-left: 3px solid #555;
-      padding: 4px 8px; border-radius: 4px; font-size: 0.75rem;
+      padding: 3px 6px; border-radius: 4px; font-size: 0.75rem;
       color: #333; margin-bottom: 4px; line-height: 1.2;
       word-break: break-all; width: fit-content; max-width: 100%;
     }
-    .reply-quote-box:empty {
-      display: none !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
 
     .chat-action-btn {
-      background: none; border: none; font-size: 0.75rem; color: #555;
-      cursor: pointer; padding: 0 2px; white-space: nowrap;
+      background: none; border: none; font-size: 0.7rem; color: #555;
+      cursor: pointer; padding: 0 2px; white-space: nowrap; line-height: 1;
     }
+    .chat-action-btn.edit { color: #0095f6; }
     .chat-action-btn.del { color: #d9534f; }
 
     .chat-reply-preview-bar {
@@ -239,36 +260,93 @@
     .chat-input-area input { flex: 1; border: none; outline: none; padding: 6px; font-size: 0.85rem; }
     .chat-input-area button { background: #ffeb33; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
 
+    .edited-mark { font-size: 0.7rem; color: #8e8e8e; margin-left: 4px; }
+
+    /* 🗳️ PAGE 3: 설문조사 스타일 */
+    .create-poll-card {
+      background: #fff; border: 1px solid #dbdbdb; border-radius: 12px;
+      padding: 15px; margin-bottom: 20px;
+    }
+    .create-poll-card h3 { font-size: 1rem; margin-bottom: 10px; color: #111; }
+    .create-poll-card input {
+      width: 100%; padding: 8px 12px; border: 1px solid #dbdbdb;
+      border-radius: 8px; font-size: 0.85rem; outline: none; margin-bottom: 8px;
+    }
+    .poll-option-inputs { margin-bottom: 10px; }
+    .add-opt-btn {
+      background: #efefef; border: none; padding: 5px 10px;
+      border-radius: 6px; font-size: 0.75rem; font-weight: bold; cursor: pointer; margin-bottom: 10px;
+    }
+    .submit-poll-btn {
+      width: 100%; background: #0095f6; color: white; border: none;
+      padding: 9px; border-radius: 8px; font-size: 0.85rem; font-weight: bold; cursor: pointer;
+    }
+
+    .poll-card {
+      background: #fff; border: 1px solid #dbdbdb; border-radius: 12px;
+      padding: 15px; margin-bottom: 15px;
+    }
+    .poll-header {
+      display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;
+    }
+    .poll-title { font-weight: bold; font-size: 1rem; color: #111; line-height: 1.3; }
+    .poll-meta { font-size: 0.75rem; color: #8e8e8e; margin-top: 2px; }
+
+    .poll-options-container { display: flex; flex-direction: column; gap: 8px; }
+    .poll-option-btn {
+      position: relative; width: 100%; border: 1px solid #dbdbdb;
+      border-radius: 8px; padding: 10px 12px; background: #fff;
+      text-align: left; cursor: pointer; overflow: hidden; outline: none;
+      transition: all 0.2s;
+    }
+    .poll-option-btn:hover { border-color: #0095f6; }
+    .poll-option-btn.voted { border-color: #0095f6; background-color: #f0f8ff; }
+    .poll-progress-bar {
+      position: absolute; top: 0; left: 0; bottom: 0;
+      background: rgba(0, 149, 246, 0.15); z-index: 1; transition: width 0.4s ease;
+    }
+    .poll-option-content {
+      position: relative; z-index: 2; display: flex; justify-content: space-between;
+      align-items: center; font-size: 0.85rem; color: #262626;
+    }
+    .poll-voted-tag { font-weight: bold; color: #0095f6; margin-left: 4px; }
+
     footer { text-align: center; font-size: 0.75rem; color: #8e8e8e; margin: 20px 0; }
   </style>
 </head>
 <body>
 
-  <!-- 1. 입장 모달 -->
   <div id="login-overlay">
     <div class="login-box">
       <h2> 3학년 3반 공간 </h2>
-      <p>본인의 **이름**을 입력하고 입장하세요.<br>(닉네임이 자동으로 고정됩니다)</p>
+      <p>본인의 <strong>이름</strong>을 입력하고 입장하세요.<br>(닉네임이 자동으로 고정됩니다)</p>
       <input type="text" id="username-input" placeholder="이름 입력 (예: 홍길동)" onkeyup="if(event.keyCode===13) login()">
       <button onclick="login()">입장하기</button>
     </div>
   </div>
 
-  <!-- 메인 공간 -->
   <div class="container" id="main-content">
     <header>
-      <h1>그해, 3학년 3반</h1>
+      <h1>2026 3-3</h1>
       <div class="user-badge" id="user-badge-text"></div>
     </header>
 
-    <!-- 📸 PAGE 1: 게시물 -->
+    <div class="nav-bar">
+      <div class="nav-title" id="current-page-title">📱 게시물</div>
+      <div class="nav-btn-group">
+        <button class="nav-arrow-btn active" id="nav-btn-1" onclick="switchPage(1)">게시물</button>
+        <button class="nav-arrow-btn" id="nav-btn-2" onclick="switchPage(2)">채팅방</button>
+        <button class="nav-arrow-btn" id="nav-btn-3" onclick="switchPage(3)">설문조사</button>
+      </div>
+    </div>
+
     <div class="page-content active" id="page-1">
-      <div class="nav-bar">
-        <div class="nav-title">📱 PAGE 1. 게시물</div>
-        <button class="nav-arrow-btn" onclick="switchPage(2)">채팅방 ▶</button>
+      <div class="sort-filter-bar">
+        <button class="sort-btn active" id="sort-recent" onclick="setPostSort('recent')">최신순</button>
+        <button class="sort-btn" id="sort-popular" onclick="setPostSort('popular')">인기순 (❤️)</button>
+        <button class="sort-btn" id="sort-oldest" onclick="setPostSort('oldest')">오래된순</button>
       </div>
 
-      <!-- 새 게시물 업로드 창 -->
       <div class="create-post-card">
         <textarea id="post-caption-input" rows="2" placeholder="문구 입력... (사진/영상과 함께 게시해보세요)"></textarea>
         <div class="file-select-preview" id="file-preview-text">선택된 미디어 없음 (복수 선택 가능)</div>
@@ -279,23 +357,20 @@
         </div>
       </div>
 
-      <!-- 게시물 목록 -->
       <div id="feed-container">
         <div style="text-align:center; color:#8e8e8e; padding:30px 0;">게시물을 불러오는 중...</div>
       </div>
     </div>
 
-    <!-- 💬 PAGE 2: 채팅방 -->
     <div class="page-content" id="page-2">
-      <div class="nav-bar">
-        <button class="nav-arrow-btn" onclick="switchPage(1)">◀ 게시물 이동</button>
-        <div class="nav-title">💬 PAGE 2. 채팅방</div>
-      </div>
-
       <div class="chat-card">
+        <div class="chat-header-bar">
+          <button class="pin-notice-btn" onclick="manageNotice()">📌 공지 고정</button>
+          <div class="chat-notice-text" id="chat-notice-display">등록된 공지사항이 없습니다.</div>
+        </div>
+
         <div class="chat-messages" id="chat-messages"></div>
         
-        <!-- 답장 인용 상태바 -->
         <div class="chat-reply-preview-bar" id="chat-reply-bar">
           <span id="chat-reply-text"></span>
           <button style="background:none; border:none; cursor:pointer; font-size:0.8rem;" onclick="cancelChatReply()">✕</button>
@@ -305,6 +380,23 @@
           <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." onkeyup="if(event.keyCode===13) sendChatMessage()">
           <button onclick="sendChatMessage()">전송</button>
         </div>
+      </div>
+    </div>
+
+    <div class="page-content" id="page-3">
+      <div class="create-poll-card">
+        <h3>📊 새 설문 작성하기</h3>
+        <input type="text" id="poll-title-input" placeholder="설문 제목">
+        <div class="poll-option-inputs" id="poll-option-inputs">
+          <input type="text" class="poll-opt-input" placeholder="선택 항목 1">
+          <input type="text" class="poll-opt-input" placeholder="선택 항목 2">
+        </div>
+        <button class="add-opt-btn" onclick="addPollOptionField()">+ 항목 추가</button>
+        <button class="submit-poll-btn" onclick="createPoll()">설문 올리기</button>
+      </div>
+
+      <div id="poll-container">
+        <div style="text-align:center; color:#8e8e8e; padding:30px 0;">설문을 불러오는 중...</div>
       </div>
     </div>
 
@@ -328,11 +420,14 @@
     const ADMIN_PASSWORD = "dlgusdn";
 
     let currentUser = "";
+    let currentPostSort = 'recent';
+    let rawPostsData = {};
+
     let activeReplyTarget = {}; 
     let activeChatReplyTarget = null; 
 
     function checkAdminAuth() {
-      const inputPw = prompt("삭제 권한을 확인하기 위해 관리자 비밀번호를 입력해주세요:");
+      const inputPw = prompt("삭제/관리 권한을 확인하기 위해 관리자 비밀번호를 입력해주세요:");
       if (inputPw === ADMIN_PASSWORD) {
         return true;
       } else {
@@ -354,11 +449,22 @@
       
       loadPosts();
       loadChatMessages();
+      loadNotice();
+      loadPolls();
     }
 
     function switchPage(pageNum) {
       document.getElementById('page-1').classList.toggle('active', pageNum === 1);
-      document.getElementById('page-2').classList.toggle('active', pageNum === 2);
+      document.getElementById('page-2').classList.toggle('active', pageNum === 1 === false && pageNum === 2);
+      document.getElementById('page-3').classList.toggle('active', pageNum === 3);
+
+      document.getElementById('nav-btn-1').classList.toggle('active', pageNum === 1);
+      document.getElementById('nav-btn-2').classList.toggle('active', pageNum === 2);
+      document.getElementById('nav-btn-3').classList.toggle('active', pageNum === 3);
+
+      const titleMap = { 1: '📱 게시물', 2: '💬 채팅방', 3: '📊 학급 설문' };
+      document.getElementById('current-page-title').innerText = titleMap[pageNum];
+
       if (pageNum === 2) scrollToBottom();
     }
 
@@ -367,6 +473,44 @@
       return `${now.getMonth() + 1}월 ${now.getDate()}일 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     }
 
+    /* ==========================================
+       📌 PAGE 2. 채팅방 공지사항 고정 로직
+    ========================================== */
+    function loadNotice() {
+      db.ref('notice').on('value', (snapshot) => {
+        const noticeText = snapshot.val();
+        const displayElem = document.getElementById('chat-notice-display');
+        if (noticeText) {
+          displayElem.innerText = `📢 ${noticeText}`;
+        } else {
+          displayElem.innerText = "등록된 공지사항이 없습니다.";
+        }
+      });
+    }
+
+    function manageNotice() {
+      if (!checkAdminAuth()) return;
+
+      db.ref('notice').once('value', (snapshot) => {
+        const currentNotice = snapshot.val() || "";
+        const action = prompt("원하는 작업을 선택하세요:\n1. 공지 등록/수정\n2. 공지 삭제", "1");
+
+        if (action === "1") {
+          const newNotice = prompt("채팅방 상단에 고정할 공지사항을 입력하세요:", currentNotice);
+          if (newNotice !== null && newNotice.trim() !== "") {
+            db.ref('notice').set(newNotice.trim());
+          }
+        } else if (action === "2") {
+          if (confirm("고정된 공지사항을 삭제하시겠습니까?")) {
+            db.ref('notice').remove();
+          }
+        }
+      });
+    }
+
+    /* ==========================================
+       📸 PAGE 1. 게시물 & 정렬 관련 로직
+    ========================================== */
     function updateFilePreview() {
       const files = document.getElementById('post-files').files;
       const previewText = document.getElementById('file-preview-text');
@@ -413,126 +557,177 @@
       });
     }
 
+    function setPostSort(sortType) {
+      currentPostSort = sortType;
+      document.getElementById('sort-recent').classList.toggle('active', sortType === 'recent');
+      document.getElementById('sort-popular').classList.toggle('active', sortType === 'popular');
+      document.getElementById('sort-oldest').classList.toggle('active', sortType === 'oldest');
+      renderPosts();
+    }
+
     function loadPosts() {
       db.ref('posts').on('value', (snapshot) => {
-        const data = snapshot.val();
-        const feed = document.getElementById('feed-container');
-        feed.innerHTML = '';
+        rawPostsData = snapshot.val() || {};
+        renderPosts();
+      });
+    }
 
-        if (!data) {
-          feed.innerHTML = '<div style="text-align:center; color:#8e8e8e; padding:30px 0;">게시물이 없습니다. 첫 소식을 남겨보세요!</div>';
+    function renderPosts() {
+      const feed = document.getElementById('feed-container');
+      feed.innerHTML = '';
+
+      const postKeys = Object.keys(rawPostsData);
+      if (postKeys.length === 0) {
+        feed.innerHTML = '<div style="text-align:center; color:#8e8e8e; padding:30px 0;">게시물이 없습니다. 첫 소식을 남겨보세요!</div>';
+        return;
+      }
+
+      postKeys.sort((a, b) => {
+        const postA = rawPostsData[a];
+        const postB = rawPostsData[b];
+        const timeA = postA.timestamp || 0;
+        const timeB = postB.timestamp || 0;
+        const likesA = postA.likes ? Object.keys(postA.likes).length : 0;
+        const likesB = postB.likes ? Object.keys(postB.likes).length : 0;
+
+        if (currentPostSort === 'popular') {
+          if (likesB !== likesA) return likesB - likesA;
+          return timeB - timeA;
+        } else if (currentPostSort === 'oldest') {
+          return timeA - timeB;
+        } else {
+          return timeB - timeA;
+        }
+      });
+
+      postKeys.forEach((postId) => {
+        const post = rawPostsData[postId];
+        const media = post.media || [];
+        const likesCount = post.likes ? Object.keys(post.likes).length : 0;
+        const isLiked = post.likes && post.likes[currentUser];
+
+        const postCard = document.createElement('div');
+        postCard.className = 'post-card';
+
+        let mediaHtml = '';
+        if (media.length > 0) {
+          let mediaItems = media.map((item, idx) => {
+            const activeClass = idx === 0 ? 'active' : '';
+            return item.type === 'image'
+              ? `<img src="${item.url}" class="media-item ${activeClass}" id="media-${postId}-${idx}">`
+              : `<video src="${item.url}" controls class="media-item ${activeClass}" id="media-${postId}-${idx}"></video>`;
+          }).join('');
+
+          mediaHtml = `
+            <div class="media-slider">
+              ${mediaItems}
+              ${media.length > 1 ? `
+                <button class="slide-btn prev" onclick="moveSlide('${postId}', -1, ${media.length})">❮</button>
+                <button class="slide-btn next" onclick="moveSlide('${postId}', 1, ${media.length})">❯</button>
+                <div class="slide-counter" id="counter-${postId}">1 / ${media.length}</div>
+              ` : ''}
+            </div>
+          `;
+        }
+
+        let commentsHtml = '';
+        if (post.comments) {
+          Object.keys(post.comments).forEach((cId) => {
+            const comment = post.comments[cId];
+            const cLikesCount = comment.likes ? Object.keys(comment.likes).length : 0;
+            const isCLiked = comment.likes && comment.likes[currentUser];
+
+            let repliesHtml = '';
+            if (comment.replies) {
+              Object.keys(comment.replies).forEach((rId) => {
+                const reply = comment.replies[rId];
+                const isMyReply = reply.author === currentUser;
+                repliesHtml += `
+                  <div style="margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                      <span class="comment-author">${escapeHtml(reply.author)}</span>
+                      <span>${escapeHtml(reply.text)}</span>
+                    </div>
+                    <button class="action-btn del-btn" onclick="deleteReply('${postId}', '${cId}', '${rId}', '${escapeHtml(reply.author)}')">${isMyReply ? '삭제' : '관리자 삭제'}</button>
+                  </div>
+                `;
+              });
+            }
+
+            const isMyComment = comment.author === currentUser;
+
+            commentsHtml += `
+              <div class="comment-item">
+                <div class="comment-main">
+                  <div>
+                    <span class="comment-author">${escapeHtml(comment.author)}</span>
+                    <span>${escapeHtml(comment.text)}</span>
+                  </div>
+                  <div>
+                    <button class="action-btn ${isCLiked ? 'liked' : ''}" onclick="toggleCommentLike('${postId}', '${cId}')">❤️ ${cLikesCount}</button>
+                    <button class="action-btn" onclick="setReplyTarget('${postId}', '${cId}', '${escapeHtml(comment.author)}')">답글</button>
+                    <button class="action-btn del-btn" onclick="deleteComment('${postId}', '${cId}', '${escapeHtml(comment.author)}')">${isMyComment ? '삭제' : '관리자 삭제'}</button>
+                  </div>
+                </div>
+                ${repliesHtml ? `<div class="replies-list">${repliesHtml}</div>` : ''}
+              </div>
+            `;
+          });
+        }
+
+        const isMyPost = post.author === currentUser;
+
+        postCard.innerHTML = `
+          <div class="post-header">
+            <span class="post-author">👤 ${escapeHtml(post.author)}</span>
+            <div style="display:flex; align-items:center; gap:8px;">
+              <span class="post-time">${post.date}</span>
+              ${isMyPost ? `<button style="background:none; border:none; color:#0095f6; font-size:0.75rem; cursor:pointer;" onclick="editPost('${postId}', '${escapeHtml(post.caption || '')}')">수정</button>` : ''}
+              <button style="background:none; border:none; color:#ff6b6b; font-size:0.75rem; cursor:pointer;" onclick="deletePost('${postId}', '${escapeHtml(post.author)}')">${isMyPost ? '삭제' : '관리자 삭제'}</button>
+            </div>
+          </div>
+
+          ${mediaHtml}
+
+          ${post.caption ? `<div class="post-caption"><strong>${escapeHtml(post.author)}</strong> ${escapeHtml(post.caption)} ${post.isEdited ? '<span class="edited-mark">(수정됨)</span>' : ''}</div>` : ''}
+
+          <div class="post-footer">
+            <div class="post-actions">
+              <button class="like-btn" onclick="togglePostLike('${postId}')">${isLiked ? '❤️' : '🤍'}</button>
+              <span class="like-count">좋아요 ${likesCount}개</span>
+            </div>
+          </div>
+
+          <div class="comments-section">
+            <div id="comments-list-${postId}">${commentsHtml}</div>
+            <div class="comment-input-box">
+              <input type="text" id="comment-input-${postId}" placeholder="댓글 달기..." onkeyup="if(event.keyCode===13) addComment('${postId}')">
+              <button onclick="addComment('${postId}')">게시</button>
+            </div>
+            <div id="reply-indicator-${postId}" style="font-size:0.72rem; color:#0095f6; margin-top:4px;"></div>
+          </div>
+        `;
+
+        feed.appendChild(postCard);
+      });
+    }
+
+    function editPost(postId, oldCaption) {
+      db.ref(`posts/${postId}`).once('value', (snap) => {
+        const post = snap.val();
+        if (!post) return;
+        if (post.author !== currentUser) {
+          alert("본인의 게시물만 수정할 수 있습니다!");
           return;
         }
 
-        Object.keys(data).reverse().forEach((postId) => {
-          const post = data[postId];
-          const media = post.media || [];
-          const likesCount = post.likes ? Object.keys(post.likes).length : 0;
-          const isLiked = post.likes && post.likes[currentUser];
-
-          const postCard = document.createElement('div');
-          postCard.className = 'post-card';
-
-          let mediaHtml = '';
-          if (media.length > 0) {
-            let mediaItems = media.map((item, idx) => {
-              const activeClass = idx === 0 ? 'active' : '';
-              return item.type === 'image'
-                ? `<img src="${item.url}" class="media-item ${activeClass}" id="media-${postId}-${idx}">`
-                : `<video src="${item.url}" controls class="media-item ${activeClass}" id="media-${postId}-${idx}"></video>`;
-            }).join('');
-
-            mediaHtml = `
-              <div class="media-slider">
-                ${mediaItems}
-                ${media.length > 1 ? `
-                  <button class="slide-btn prev" onclick="moveSlide('${postId}', -1, ${media.length})">❮</button>
-                  <button class="slide-btn next" onclick="moveSlide('${postId}', 1, ${media.length})">❯</button>
-                  <div class="slide-counter" id="counter-${postId}">1 / ${media.length}</div>
-                ` : ''}
-              </div>
-            `;
-          }
-
-          let commentsHtml = '';
-          if (post.comments) {
-            Object.keys(post.comments).forEach((cId) => {
-              const comment = post.comments[cId];
-              const cLikesCount = comment.likes ? Object.keys(comment.likes).length : 0;
-              const isCLiked = comment.likes && comment.likes[currentUser];
-
-              let repliesHtml = '';
-              if (comment.replies) {
-                Object.keys(comment.replies).forEach((rId) => {
-                  const reply = comment.replies[rId];
-                  const isMyReply = reply.author === currentUser;
-                  repliesHtml += `
-                    <div style="margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
-                      <div>
-                        <span class="comment-author">${escapeHtml(reply.author)}</span>
-                        <span>${escapeHtml(reply.text)}</span>
-                      </div>
-                      <button class="action-btn del-btn" onclick="deleteReply('${postId}', '${cId}', '${rId}', '${escapeHtml(reply.author)}')">${isMyReply ? '삭제' : '관리자 삭제'}</button>
-                    </div>
-                  `;
-                });
-              }
-
-              const isMyComment = comment.author === currentUser;
-
-              commentsHtml += `
-                <div class="comment-item">
-                  <div class="comment-main">
-                    <div>
-                      <span class="comment-author">${escapeHtml(comment.author)}</span>
-                      <span>${escapeHtml(comment.text)}</span>
-                    </div>
-                    <div>
-                      <button class="action-btn ${isCLiked ? 'liked' : ''}" onclick="toggleCommentLike('${postId}', '${cId}')">❤️ ${cLikesCount}</button>
-                      <button class="action-btn" onclick="setReplyTarget('${postId}', '${cId}', '${escapeHtml(comment.author)}')">답글</button>
-                      <button class="action-btn del-btn" onclick="deleteComment('${postId}', '${cId}', '${escapeHtml(comment.author)}')">${isMyComment ? '삭제' : '관리자 삭제'}</button>
-                    </div>
-                  </div>
-                  ${repliesHtml ? `<div class="replies-list">${repliesHtml}</div>` : ''}
-                </div>
-              `;
-            });
-          }
-
-          const isMyPost = post.author === currentUser;
-
-          postCard.innerHTML = `
-            <div class="post-header">
-              <span class="post-author">👤 ${escapeHtml(post.author)}</span>
-              <div style="display:flex; align-items:center; gap:8px;">
-                <span class="post-time">${post.date}</span>
-                <button style="background:none; border:none; color:#ff6b6b; font-size:0.75rem; cursor:pointer;" onclick="deletePost('${postId}', '${escapeHtml(post.author)}')">${isMyPost ? '삭제' : '관리자 삭제'}</button>
-              </div>
-            </div>
-
-            ${mediaHtml}
-
-            ${post.caption ? `<div class="post-caption"><strong>${escapeHtml(post.author)}</strong> ${escapeHtml(post.caption)}</div>` : ''}
-
-            <div class="post-footer">
-              <div class="post-actions">
-                <button class="like-btn" onclick="togglePostLike('${postId}')">${isLiked ? '❤️' : '🤍'}</button>
-                <span class="like-count">좋아요 ${likesCount}개</span>
-              </div>
-            </div>
-
-            <div class="comments-section">
-              <div id="comments-list-${postId}">${commentsHtml}</div>
-              <div class="comment-input-box">
-                <input type="text" id="comment-input-${postId}" placeholder="댓글 달기..." onkeyup="if(event.keyCode===13) addComment('${postId}')">
-                <button onclick="addComment('${postId}')">게시</button>
-              </div>
-              <div id="reply-indicator-${postId}" style="font-size:0.72rem; color:#0095f6; margin-top:4px;"></div>
-            </div>
-          `;
-
-          feed.appendChild(postCard);
-        });
+        const newCaption = prompt("게시물 문구를 수정하세요:", oldCaption);
+        if (newCaption !== null && newCaption.trim() !== oldCaption) {
+          db.ref(`posts/${postId}`).update({
+            caption: newCaption.trim(),
+            isEdited: true
+          });
+        }
       });
     }
 
@@ -616,6 +811,9 @@
       }
     }
 
+    /* ==========================================
+       💬 PAGE 2. 실시간 채팅 로직
+    ========================================== */
     function prepareChatReply(author, text) {
       activeChatReplyTarget = { author, text };
       document.getElementById('chat-reply-bar').style.display = 'flex';
@@ -649,13 +847,31 @@
       });
     }
 
+    function editChatMessage(chatId, oldText) {
+      db.ref(`chats/${chatId}`).once('value', (snap) => {
+        const msg = snap.val();
+        if (!msg) return;
+        if (msg.author !== currentUser) {
+          alert("본인의 메시지만 수정할 수 있습니다!");
+          return;
+        }
+
+        const newText = prompt("채팅 메시지를 수정하세요:", oldText);
+        if (newText !== null && newText.trim() !== oldText) {
+          db.ref(`chats/${chatId}`).update({
+            text: newText.trim(),
+            isEdited: true
+          });
+        }
+      });
+    }
+
     function deleteChatMessage(chatId, author) {
       if (author === currentUser || checkAdminAuth()) {
         db.ref(`chats/${chatId}`).remove();
       }
     }
 
-    /* 🌟 채팅 메시지 렌더링 함수 로직 정돈 */
     function loadChatMessages() {
       db.ref('chats').on('value', (snapshot) => {
         const data = snapshot.val();
@@ -670,7 +886,6 @@
           const groupDiv = document.createElement('div');
           groupDiv.className = `msg-group ${isMyMsg ? 'my-msg' : 'other-msg'}`;
 
-          // 답장 인용구가 존재할 때만 HTML 태그 생성
           let replyQuoteHtml = '';
           if (msg.replyTo && msg.replyTo.author && msg.replyTo.text) {
             replyQuoteHtml = `<div class="reply-quote-box"><strong>${escapeHtml(msg.replyTo.author)}</strong>: ${escapeHtml(msg.replyTo.text)}</div>`;
@@ -679,9 +894,10 @@
           groupDiv.innerHTML = `
             ${!isMyMsg ? `<div class="msg-author">${escapeHtml(msg.author)}</div>` : ''}
             <div class="msg-bubble-wrap">
-              <div class="msg-bubble">${replyQuoteHtml}<span>${escapeHtml(msg.text)}</span></div>
+              <div class="msg-bubble">${replyQuoteHtml}<span>${escapeHtml(msg.text)}</span>${msg.isEdited ? '<span class="edited-mark">(수정됨)</span>' : ''}</div>
               <div class="msg-btn-group">
                 <button class="chat-action-btn" onclick="prepareChatReply('${escapeHtml(msg.author)}', '${escapeHtml(msg.text)}')">답장</button>
+                ${isMyMsg ? `<button class="chat-action-btn edit" onclick="editChatMessage('${chatId}', '${escapeHtml(msg.text)}')">수정</button>` : ''}
                 <button class="chat-action-btn del" onclick="deleteChatMessage('${chatId}', '${escapeHtml(msg.author)}')">${isMyMsg ? '삭제' : '관리자 삭제'}</button>
               </div>
             </div>
@@ -695,6 +911,141 @@
     function scrollToBottom() {
       const chatContainer = document.getElementById('chat-messages');
       setTimeout(() => { chatContainer.scrollTop = chatContainer.scrollHeight; }, 50);
+    }
+
+    /* ==========================================
+       🗳️ PAGE 3. 학급 설문조사 로직 (중복 투표 방지)
+    ========================================== */
+    function addPollOptionField() {
+      const container = document.getElementById('poll-option-inputs');
+      const count = container.querySelectorAll('input').length + 1;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.className = 'poll-opt-input';
+      input.placeholder = `선택 항목 ${count}`;
+      container.appendChild(input);
+    }
+
+    function createPoll() {
+      const title = document.getElementById('poll-title-input').value.trim();
+      const optInputs = document.querySelectorAll('.poll-opt-input');
+      const options = [];
+
+      optInputs.forEach(input => {
+        const val = input.value.trim();
+        if (val) options.push(val);
+      });
+
+      if (!title) {
+        alert('설문 제목을 입력해주세요!');
+        return;
+      }
+      if (options.length < 2) {
+        alert('최소 2개 이상의 선택 항목을 입력해주세요!');
+        return;
+      }
+
+      db.ref('polls').push({
+        title: title,
+        author: currentUser,
+        options: options,
+        date: getFormattedDate(),
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        votes: {}
+      }).then(() => {
+        document.getElementById('poll-title-input').value = '';
+        document.getElementById('poll-option-inputs').innerHTML = `
+          <input type="text" class="poll-opt-input" placeholder="선택 항목 1">
+          <input type="text" class="poll-opt-input" placeholder="선택 항목 2">
+        `;
+      });
+    }
+
+    function loadPolls() {
+      db.ref('polls').on('value', (snapshot) => {
+        const data = snapshot.val();
+        const container = document.getElementById('poll-container');
+        container.innerHTML = '';
+
+        if (!data) {
+          container.innerHTML = '<div style="text-align:center; color:#8e8e8e; padding:30px 0;">진행 중인 설문이 없습니다. 새 설문을 작성해보세요!</div>';
+          return;
+        }
+
+        Object.keys(data).reverse().forEach(pollId => {
+          const poll = data[pollId];
+          const votes = poll.votes || {};
+          const options = poll.options || [];
+
+          const totalVotes = Object.keys(votes).length;
+          const userVotedOptIdx = votes[currentUser] !== undefined ? votes[currentUser] : null;
+
+          const optVoteCounts = new Array(options.length).fill(0);
+          Object.values(votes).forEach(optIdx => {
+            if (optVoteCounts[optIdx] !== undefined) {
+              optVoteCounts[optIdx]++;
+            }
+          });
+
+          const isMyPoll = poll.author === currentUser;
+
+          const pollCard = document.createElement('div');
+          pollCard.className = 'poll-card';
+
+          let optionsHtml = '';
+          options.forEach((optText, idx) => {
+            const count = optVoteCounts[idx];
+            const percent = totalVotes > 0 ? Math.round((count / totalVotes) * 100) : 0;
+            const isUserSelected = userVotedOptIdx === idx;
+
+            optionsHtml += `
+              <button class="poll-option-btn ${isUserSelected ? 'voted' : ''}" onclick="castVote('${pollId}', ${idx})">
+                <div class="poll-progress-bar" style="width: ${percent}%;"></div>
+                <div class="poll-option-content">
+                  <span>
+                    ${escapeHtml(optText)}
+                    ${isUserSelected ? '<span class="poll-voted-tag">✓ 내 선택</span>' : ''}
+                  </span>
+                  <span><strong>${percent}%</strong> (${count}명)</span>
+                </div>
+              </button>
+            `;
+          });
+
+          pollCard.innerHTML = `
+            <div class="poll-header">
+              <div>
+                <div class="poll-title">${escapeHtml(poll.title)}</div>
+                <div class="poll-meta">작성자: ${escapeHtml(poll.author)} • 총 ${totalVotes}명 참여 • ${poll.date}</div>
+              </div>
+              <button style="background:none; border:none; color:#ff6b6b; font-size:0.75rem; cursor:pointer;" onclick="deletePoll('${pollId}', '${escapeHtml(poll.author)}')">${isMyPoll ? '삭제' : '관리자 삭제'}</button>
+            </div>
+            <div class="poll-options-container">
+              ${optionsHtml}
+            </div>
+          `;
+
+          container.appendChild(pollCard);
+        });
+      });
+    }
+
+    function castVote(pollId, optionIndex) {
+      const voteRef = db.ref(`polls/${pollId}/votes/${currentUser}`);
+      
+      voteRef.once('value', (snap) => {
+        if (snap.exists() && snap.val() === optionIndex) {
+          voteRef.remove();
+        } else {
+          voteRef.set(optionIndex);
+        }
+      });
+    }
+
+    function deletePoll(pollId, author) {
+      if (author === currentUser || checkAdminAuth()) {
+        db.ref(`polls/${pollId}`).remove();
+      }
     }
 
     function escapeHtml(text) {
