@@ -1,46 +1,706 @@
-// 1. Firebase 초기화 및 데이터베이스 연결
-  firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>그해, 3학년 3반 - 게시물 & 채팅방</title>
+  
+  <!-- Firebase SDK (v8) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
 
-  // 2. 페이지가 열리면 DB에서 실시간으로 댓글을 불러와 화면에 표시
-  window.onload = function() {
-    db.ref('comments').on('value', (snapshot) => {
-      const data = snapshot.val();
-      let comments = [];
-
-      if (data) {
-        // 데이터를 배열로 변환
-        Object.keys(data).forEach((key) => {
-          comments.push({ id: key, ...data[key] });
-        });
-        // 최신순 정렬
-        comments.sort((a, b) => b.timestamp - a.timestamp);
-      }
-
-      renderComments(comments);
-    });
-  };
-
-  // 3. 댓글 작성 및 파이어베이스 DB에 저장하는 기능
-  function addComment() {
-    const nameInput = document.getElementById('author-name');
-    const textInput = document.getElementById('comment-text');
-    const author = nameInput.value.trim();
-    const text = textInput.value.trim();
-
-    if (!author || !text) {
-      alert('이름과 한마디 내용을 모두 입력해주세요!');
-      return;
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      background-color: #fafafa; color: #262626;
+      display: flex; flex-direction: column; align-items: center;
+      padding: 15px 10px; min-height: 100vh;
     }
 
-    // 데이터베이스로 댓글 저장
-    db.ref('comments').push({
-      author: author,
-      text: text,
-      timestamp: Date.now(),
-      date: new Date().toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-    }).then(() => {
-      nameInput.value = '';
-      textInput.value = '';
-    });
-  }
+    /* 1. 출석부 입장 모달 */
+    #login-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px);
+      display: flex; justify-content: center; align-items: center;
+      z-index: 9999; padding: 20px;
+    }
+    .login-box {
+      background: #fff; padding: 30px 25px; border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 1px solid #eee;
+      text-align: center; max-width: 360px; width: 100%;
+    }
+    .login-box h2 { font-size: 1.4rem; margin-bottom: 8px; color: #222; }
+    .login-box p { font-size: 0.85rem; color: #666; margin-bottom: 20px; line-height: 1.4; }
+    .login-box input {
+      width: 100%; padding: 12px 15px; border: 1px solid #ddd;
+      border-radius: 10px; font-size: 1rem; text-align: center;
+      margin-bottom: 12px; outline: none;
+    }
+    .login-box button {
+      width: 100%; padding: 12px; background: #0095f6; color: white;
+      border: none; border-radius: 10px; font-size: 1rem; font-weight: bold; cursor: pointer;
+    }
+
+    /* 메인 컨테이너 */
+    .container {
+      width: 100%; max-width: 500px; display: none;
+      animation: fadeIn 0.4s ease-in-out forwards;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    header { text-align: center; margin-bottom: 12px; }
+    header h1 { font-size: 1.5rem; color: #111; }
+    .user-badge { font-size: 0.85rem; color: #0095f6; font-weight: bold; margin-top: 2px; }
+
+    /* 페이지 제어 */
+    .page-content { display: none; }
+    .page-content.active { display: block; }
+
+    .nav-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: #fff; padding: 12px 16px; border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.04); margin-bottom: 15px;
+      border: 1px solid #dbdbdb;
+    }
+    .nav-title { font-weight: bold; font-size: 0.95rem; color: #262626; }
+    .nav-arrow-btn {
+      background: #efefef; border: none; padding: 6px 12px;
+      border-radius: 18px; font-size: 0.8rem; font-weight: bold;
+      color: #262626; cursor: pointer;
+    }
+
+    /* 📸 게시물 작성 카드 */
+    .create-post-card {
+      background: #fff; border: 1px solid #dbdbdb; border-radius: 12px;
+      padding: 15px; margin-bottom: 20px;
+    }
+    .create-post-card textarea {
+      width: 100%; border: 1px solid #efefef; border-radius: 8px;
+      padding: 10px; font-size: 0.9rem; resize: none; outline: none; margin-bottom: 10px;
+    }
+    .file-select-preview { font-size: 0.78rem; color: #8e8e8e; margin-bottom: 10px; }
+    .post-btn-group { display: flex; justify-content: space-between; align-items: center; }
+    .upload-label {
+      background: #efefef; padding: 7px 12px; border-radius: 6px;
+      font-size: 0.8rem; font-weight: 600; cursor: pointer;
+    }
+    .submit-post-btn {
+      background: #0095f6; color: white; border: none; padding: 7px 16px;
+      border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer;
+    }
+
+    /* 📱 게시물 카드 */
+    .post-card {
+      background: #fff; border: 1px solid #dbdbdb; border-radius: 12px;
+      margin-bottom: 20px; overflow: hidden;
+    }
+    .post-header {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 15px;
+    }
+    .post-author { font-weight: bold; font-size: 0.95rem; color: #111; }
+    .post-time { font-size: 0.75rem; color: #8e8e8e; }
+
+    /* 슬라이드 미디어 영역 */
+    .media-slider {
+      position: relative; width: 100%; aspect-ratio: 1 / 1;
+      background: #000; overflow: hidden; display: flex; align-items: center;
+    }
+    .media-item {
+      width: 100%; height: 100%; object-fit: contain; display: none;
+    }
+    .media-item.active { display: block; }
+    .slide-btn {
+      position: absolute; top: 50%; transform: translateY(-50%);
+      background: rgba(0,0,0,0.5); color: #fff; border: none;
+      width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
+      font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 2;
+    }
+    .slide-btn.prev { left: 8px; }
+    .slide-btn.next { right: 8px; }
+    .slide-counter {
+      position: absolute; top: 10px; right: 10px;
+      background: rgba(0,0,0,0.6); color: #fff; padding: 3px 8px;
+      border-radius: 12px; font-size: 0.7rem; font-weight: bold;
+    }
+
+    /* 글 내용 영역 */
+    .post-caption {
+      padding: 12px 15px 6px; font-size: 0.9rem; line-height: 1.45;
+      white-space: pre-wrap; color: #262626;
+    }
+
+    /* 하단 좋아요 영역 */
+    .post-footer { padding: 6px 15px 12px; }
+    .post-actions { display: flex; align-items: center; gap: 8px; }
+    .like-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; }
+    .like-count { font-size: 0.85rem; font-weight: bold; }
+
+    /* 댓글 & 대댓글 영역 */
+    .comments-section {
+      border-top: 1px solid #efefef; padding: 12px 15px; background: #fafafa;
+    }
+    .comment-item { margin-bottom: 8px; font-size: 0.83rem; }
+    .comment-main { display: flex; justify-content: space-between; align-items: flex-start; }
+    .comment-author { font-weight: bold; margin-right: 5px; }
+    .action-btn {
+      background: none; border: none; color: #8e8e8e; font-size: 0.72rem;
+      cursor: pointer; margin-left: 6px;
+    }
+    .action-btn.liked { color: #ed4956; font-weight: bold; }
+    .action-btn.del-btn { color: #ff6b6b; }
+    
+    .replies-list { margin-left: 18px; margin-top: 6px; border-left: 2px solid #e0e0e0; padding-left: 8px; }
+
+    /* 댓글 입력창 */
+    .comment-input-box { display: flex; gap: 6px; margin-top: 10px; }
+    .comment-input-box input {
+      flex: 1; border: 1px solid #dbdbdb; border-radius: 18px;
+      padding: 6px 12px; font-size: 0.82rem; outline: none;
+    }
+    .comment-input-box button {
+      background: none; border: none; color: #0095f6;
+      font-weight: bold; font-size: 0.82rem; cursor: pointer;
+    }
+
+    /* 💬 PAGE 2: 채팅방 스타일 */
+    .chat-card {
+      background: #b2c7da; border-radius: 16px; padding: 12px;
+      display: flex; flex-direction: column; height: 500px;
+    }
+    .chat-messages {
+      flex: 1; overflow-y: auto; display: flex; flex-direction: column;
+      gap: 10px; padding: 5px;
+    }
+    
+    .msg-group {
+      display: flex; flex-direction: column; max-width: 80%;
+      width: fit-content;
+    }
+    .msg-group.my-msg { align-self: flex-end; align-items: flex-end; }
+    .msg-group.other-msg { align-self: flex-start; align-items: flex-start; }
+    
+    .msg-author { font-size: 0.72rem; color: #444; margin-bottom: 3px; font-weight: 500; }
+
+    .msg-bubble-wrap {
+      display: flex; align-items: flex-end; gap: 6px; width: fit-content; max-width: 100%;
+    }
+    .my-msg .msg-bubble-wrap { flex-direction: row-reverse; }
+
+    /* 💬 말풍선 CSS 수정: 여백 완전 제거 및 피팅 */
+    .msg-bubble {
+      padding: 6px 10px !important;
+      min-height: unset !important;
+      height: fit-content !important;
+      line-height: 1.3 !important;
+      border-radius: 12px; font-size: 0.85rem;
+      word-break: break-word; white-space: pre-wrap;
+      display: inline-block; max-width: 100%;
+      margin: 0 !important;
+    }
+    .my-msg .msg-bubble { background: #ffeb33; color: #222; border-top-right-radius: 2px; }
+    .other-msg .msg-bubble { background: #fff; color: #222; border-top-left-radius: 2px; }
+
+    .msg-btn-group {
+      display: flex; flex-direction: row; align-items: flex-end; gap: 4px;
+      height: fit-content;
+    }
+
+    /* 🌟 인용구 박스: 비어있으면 아예 화면에서 숨김 */
+    .reply-quote-box {
+      background: rgba(0, 0, 0, 0.08); border-left: 3px solid #555;
+      padding: 4px 8px; border-radius: 4px; font-size: 0.75rem;
+      color: #333; margin-bottom: 4px; line-height: 1.2;
+      word-break: break-all; width: fit-content; max-width: 100%;
+    }
+    .reply-quote-box:empty {
+      display: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+    }
+
+    .chat-action-btn {
+      background: none; border: none; font-size: 0.75rem; color: #555;
+      cursor: pointer; padding: 0 2px; white-space: nowrap;
+    }
+    .chat-action-btn.del { color: #d9534f; }
+
+    .chat-reply-preview-bar {
+      display: none; justify-content: space-between; align-items: center;
+      background: #e9ecef; padding: 6px 10px; border-radius: 8px;
+      font-size: 0.78rem; color: #495057; margin-top: 6px;
+    }
+
+    .chat-input-area { display: flex; gap: 6px; margin-top: 6px; background: #fff; padding: 6px; border-radius: 10px; }
+    .chat-input-area input { flex: 1; border: none; outline: none; padding: 6px; font-size: 0.85rem; }
+    .chat-input-area button { background: #ffeb33; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
+
+    footer { text-align: center; font-size: 0.75rem; color: #8e8e8e; margin: 20px 0; }
+  </style>
+</head>
+<body>
+
+  <!-- 1. 입장 모달 -->
+  <div id="login-overlay">
+    <div class="login-box">
+      <h2>🏫 3학년 3반 공간</h2>
+      <p>본인의 **이름**을 입력하고 입장하세요.<br>(닉네임이 자동으로 고정됩니다)</p>
+      <input type="text" id="username-input" placeholder="이름 입력 (예: 홍길동)" onkeyup="if(event.keyCode===13) login()">
+      <button onclick="login()">입장하기</button>
+    </div>
+  </div>
+
+  <!-- 메인 공간 -->
+  <div class="container" id="main-content">
+    <header>
+      <h1>그해, 3학년 3반</h1>
+      <div class="user-badge" id="user-badge-text"></div>
+    </header>
+
+    <!-- 📸 PAGE 1: 게시물 -->
+    <div class="page-content active" id="page-1">
+      <div class="nav-bar">
+        <div class="nav-title">📱 PAGE 1. 게시물</div>
+        <button class="nav-arrow-btn" onclick="switchPage(2)">채팅방 ▶</button>
+      </div>
+
+      <!-- 새 게시물 업로드 창 -->
+      <div class="create-post-card">
+        <textarea id="post-caption-input" rows="2" placeholder="문구 입력... (사진/영상과 함께 게시해보세요)"></textarea>
+        <div class="file-select-preview" id="file-preview-text">선택된 미디어 없음 (복수 선택 가능)</div>
+        <div class="post-btn-group">
+          <label class="upload-label" for="post-files">📷 사진/동영상 선택</label>
+          <input type="file" id="post-files" accept="image/*,video/*" multiple style="display:none;" onchange="updateFilePreview()">
+          <button class="submit-post-btn" onclick="uploadPost()">게시</button>
+        </div>
+      </div>
+
+      <!-- 게시물 목록 -->
+      <div id="feed-container">
+        <div style="text-align:center; color:#8e8e8e; padding:30px 0;">게시물을 불러오는 중...</div>
+      </div>
+    </div>
+
+    <!-- 💬 PAGE 2: 채팅방 -->
+    <div class="page-content" id="page-2">
+      <div class="nav-bar">
+        <button class="nav-arrow-btn" onclick="switchPage(1)">◀ 게시물 이동</button>
+        <div class="nav-title">💬 PAGE 2. 채팅방</div>
+      </div>
+
+      <div class="chat-card">
+        <div class="chat-messages" id="chat-messages"></div>
+        
+        <!-- 답장 인용 상태바 -->
+        <div class="chat-reply-preview-bar" id="chat-reply-bar">
+          <span id="chat-reply-text"></span>
+          <button style="background:none; border:none; cursor:pointer; font-size:0.8rem;" onclick="cancelChatReply()">✕</button>
+        </div>
+
+        <div class="chat-input-area">
+          <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." onkeyup="if(event.keyCode===13) sendChatMessage()">
+          <button onclick="sendChatMessage()">전송</button>
+        </div>
+      </div>
+    </div>
+
+    <footer>
+      &copy; 2026 우리반 학급 피드 프로젝트
+    </footer>
+  </div>
+
+  <script>
+    // === Firebase 설정 ===
+    const firebaseConfig = {
+      databaseURL: "https://class33-4b6db-default-rtdb.firebaseio.com"
+    };
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
+
+    // 관리자 비밀번호
+    const ADMIN_PASSWORD = "1234";
+
+    let currentUser = "";
+    let activeReplyTarget = {}; 
+    let activeChatReplyTarget = null; 
+
+    function checkAdminAuth() {
+      const inputPw = prompt("삭제 권한을 확인하기 위해 관리자 비밀번호를 입력해주세요:");
+      if (inputPw === ADMIN_PASSWORD) {
+        return true;
+      } else {
+        alert("비밀번호가 올바르지 않습니다.");
+        return false;
+      }
+    }
+
+    function login() {
+      const nameInput = document.getElementById('username-input').value.trim();
+      if (!nameInput) {
+        alert('이름을 입력해주세요!');
+        return;
+      }
+      currentUser = nameInput;
+      document.getElementById('login-overlay').style.display = 'none';
+      document.getElementById('main-content').style.display = 'block';
+      document.getElementById('user-badge-text').innerText = `👤 ${currentUser}님`;
+      
+      loadPosts();
+      loadChatMessages();
+    }
+
+    function switchPage(pageNum) {
+      document.getElementById('page-1').classList.toggle('active', pageNum === 1);
+      document.getElementById('page-2').classList.toggle('active', pageNum === 2);
+      if (pageNum === 2) scrollToBottom();
+    }
+
+    function getFormattedDate() {
+      const now = new Date();
+      return `${now.getMonth() + 1}월 ${now.getDate()}일 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+
+    function updateFilePreview() {
+      const files = document.getElementById('post-files').files;
+      const previewText = document.getElementById('file-preview-text');
+      if (files.length === 0) {
+        previewText.innerText = "선택된 미디어 없음 (복수 선택 가능)";
+      } else {
+        previewText.innerText = `📷 선택된 미디어: 총 ${files.length}개`;
+      }
+    }
+
+    async function uploadPost() {
+      const files = document.getElementById('post-files').files;
+      const caption = document.getElementById('post-caption-input').value.trim();
+
+      if (files.length === 0 && !caption) {
+        alert('사진/동영상을 선택하거나 글을 입력해주세요!');
+        return;
+      }
+
+      const mediaPromises = Array.from(files).map(file => {
+        return new Promise((resolve) => {
+          const reader = new FileReader();
+          reader.onload = (e) => resolve({
+            url: e.target.result,
+            type: file.type.startsWith('image') ? 'image' : 'video'
+          });
+          reader.readAsDataURL(file);
+        });
+      });
+
+      const mediaList = await Promise.all(mediaPromises);
+
+      db.ref('posts').push({
+        author: currentUser,
+        caption: caption,
+        media: mediaList,
+        date: getFormattedDate(),
+        timestamp: firebase.database.ServerValue.TIMESTAMP,
+        likes: {}
+      }).then(() => {
+        document.getElementById('post-files').value = '';
+        document.getElementById('post-caption-input').value = '';
+        updateFilePreview();
+      });
+    }
+
+    function loadPosts() {
+      db.ref('posts').on('value', (snapshot) => {
+        const data = snapshot.val();
+        const feed = document.getElementById('feed-container');
+        feed.innerHTML = '';
+
+        if (!data) {
+          feed.innerHTML = '<div style="text-align:center; color:#8e8e8e; padding:30px 0;">게시물이 없습니다. 첫 소식을 남겨보세요!</div>';
+          return;
+        }
+
+        Object.keys(data).reverse().forEach((postId) => {
+          const post = data[postId];
+          const media = post.media || [];
+          const likesCount = post.likes ? Object.keys(post.likes).length : 0;
+          const isLiked = post.likes && post.likes[currentUser];
+
+          const postCard = document.createElement('div');
+          postCard.className = 'post-card';
+
+          let mediaHtml = '';
+          if (media.length > 0) {
+            let mediaItems = media.map((item, idx) => {
+              const activeClass = idx === 0 ? 'active' : '';
+              return item.type === 'image'
+                ? `<img src="${item.url}" class="media-item ${activeClass}" id="media-${postId}-${idx}">`
+                : `<video src="${item.url}" controls class="media-item ${activeClass}" id="media-${postId}-${idx}"></video>`;
+            }).join('');
+
+            mediaHtml = `
+              <div class="media-slider">
+                ${mediaItems}
+                ${media.length > 1 ? `
+                  <button class="slide-btn prev" onclick="moveSlide('${postId}', -1, ${media.length})">❮</button>
+                  <button class="slide-btn next" onclick="moveSlide('${postId}', 1, ${media.length})">❯</button>
+                  <div class="slide-counter" id="counter-${postId}">1 / ${media.length}</div>
+                ` : ''}
+              </div>
+            `;
+          }
+
+          let commentsHtml = '';
+          if (post.comments) {
+            Object.keys(post.comments).forEach((cId) => {
+              const comment = post.comments[cId];
+              const cLikesCount = comment.likes ? Object.keys(comment.likes).length : 0;
+              const isCLiked = comment.likes && comment.likes[currentUser];
+
+              let repliesHtml = '';
+              if (comment.replies) {
+                Object.keys(comment.replies).forEach((rId) => {
+                  const reply = comment.replies[rId];
+                  const isMyReply = reply.author === currentUser;
+                  repliesHtml += `
+                    <div style="margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
+                      <div>
+                        <span class="comment-author">${escapeHtml(reply.author)}</span>
+                        <span>${escapeHtml(reply.text)}</span>
+                      </div>
+                      <button class="action-btn del-btn" onclick="deleteReply('${postId}', '${cId}', '${rId}', '${escapeHtml(reply.author)}')">${isMyReply ? '삭제' : '관리자 삭제'}</button>
+                    </div>
+                  `;
+                });
+              }
+
+              const isMyComment = comment.author === currentUser;
+
+              commentsHtml += `
+                <div class="comment-item">
+                  <div class="comment-main">
+                    <div>
+                      <span class="comment-author">${escapeHtml(comment.author)}</span>
+                      <span>${escapeHtml(comment.text)}</span>
+                    </div>
+                    <div>
+                      <button class="action-btn ${isCLiked ? 'liked' : ''}" onclick="toggleCommentLike('${postId}', '${cId}')">❤️ ${cLikesCount}</button>
+                      <button class="action-btn" onclick="setReplyTarget('${postId}', '${cId}', '${escapeHtml(comment.author)}')">답글</button>
+                      <button class="action-btn del-btn" onclick="deleteComment('${postId}', '${cId}', '${escapeHtml(comment.author)}')">${isMyComment ? '삭제' : '관리자 삭제'}</button>
+                    </div>
+                  </div>
+                  ${repliesHtml ? `<div class="replies-list">${repliesHtml}</div>` : ''}
+                </div>
+              `;
+            });
+          }
+
+          const isMyPost = post.author === currentUser;
+
+          postCard.innerHTML = `
+            <div class="post-header">
+              <span class="post-author">👤 ${escapeHtml(post.author)}</span>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <span class="post-time">${post.date}</span>
+                <button style="background:none; border:none; color:#ff6b6b; font-size:0.75rem; cursor:pointer;" onclick="deletePost('${postId}', '${escapeHtml(post.author)}')">${isMyPost ? '삭제' : '관리자 삭제'}</button>
+              </div>
+            </div>
+
+            ${mediaHtml}
+
+            ${post.caption ? `<div class="post-caption"><strong>${escapeHtml(post.author)}</strong> ${escapeHtml(post.caption)}</div>` : ''}
+
+            <div class="post-footer">
+              <div class="post-actions">
+                <button class="like-btn" onclick="togglePostLike('${postId}')">${isLiked ? '❤️' : '🤍'}</button>
+                <span class="like-count">좋아요 ${likesCount}개</span>
+              </div>
+            </div>
+
+            <div class="comments-section">
+              <div id="comments-list-${postId}">${commentsHtml}</div>
+              <div class="comment-input-box">
+                <input type="text" id="comment-input-${postId}" placeholder="댓글 달기..." onkeyup="if(event.keyCode===13) addComment('${postId}')">
+                <button onclick="addComment('${postId}')">게시</button>
+              </div>
+              <div id="reply-indicator-${postId}" style="font-size:0.72rem; color:#0095f6; margin-top:4px;"></div>
+            </div>
+          `;
+
+          feed.appendChild(postCard);
+        });
+      });
+    }
+
+    const slideIndexes = {};
+    function moveSlide(postId, dir, total) {
+      if (!slideIndexes[postId]) slideIndexes[postId] = 0;
+      document.getElementById(`media-${postId}-${slideIndexes[postId]}`).classList.remove('active');
+      slideIndexes[postId] = (slideIndexes[postId] + dir + total) % total;
+      document.getElementById(`media-${postId}-${slideIndexes[postId]}`).classList.add('active');
+      document.getElementById(`counter-${postId}`).innerText = `${slideIndexes[postId] + 1} / ${total}`;
+    }
+
+    function togglePostLike(postId) {
+      const likeRef = db.ref(`posts/${postId}/likes/${currentUser}`);
+      likeRef.once('value', (snap) => {
+        if (snap.exists()) likeRef.remove();
+        else likeRef.set(true);
+      });
+    }
+
+    function setReplyTarget(postId, commentId, authorName) {
+      activeReplyTarget[postId] = commentId;
+      document.getElementById(`reply-indicator-${postId}`).innerText = `@${authorName} 님에게 답글 작성 중 (취소: 클릭)`;
+      document.getElementById(`reply-indicator-${postId}`).onclick = () => {
+        delete activeReplyTarget[postId];
+        document.getElementById(`reply-indicator-${postId}`).innerText = '';
+      };
+      document.getElementById(`comment-input-${postId}`).focus();
+    }
+
+    function addComment(postId) {
+      const input = document.getElementById(`comment-input-${postId}`);
+      const text = input.value.trim();
+      if (!text) return;
+
+      const targetCommentId = activeReplyTarget[postId];
+
+      if (targetCommentId) {
+        db.ref(`posts/${postId}/comments/${targetCommentId}/replies`).push({
+          author: currentUser,
+          text: text,
+          timestamp: firebase.database.ServerValue.TIMESTAMP
+        }).then(() => {
+          input.value = '';
+          delete activeReplyTarget[postId];
+          document.getElementById(`reply-indicator-${postId}`).innerText = '';
+        });
+      } else {
+        db.ref(`posts/${postId}/comments`).push({
+          author: currentUser,
+          text: text,
+          timestamp: firebase.database.ServerValue.TIMESTAMP,
+          likes: {}
+        }).then(() => { input.value = ''; });
+      }
+    }
+
+    function toggleCommentLike(postId, commentId) {
+      const likeRef = db.ref(`posts/${postId}/comments/${commentId}/likes/${currentUser}`);
+      likeRef.once('value', (snap) => {
+        if (snap.exists()) likeRef.remove();
+        else likeRef.set(true);
+      });
+    }
+
+    function deleteComment(postId, commentId, author) {
+      if (author === currentUser || checkAdminAuth()) {
+        db.ref(`posts/${postId}/comments/${commentId}`).remove();
+      }
+    }
+
+    function deleteReply(postId, commentId, replyId, author) {
+      if (author === currentUser || checkAdminAuth()) {
+        db.ref(`posts/${postId}/comments/${commentId}/replies/${replyId}`).remove();
+      }
+    }
+
+    function deletePost(postId, author) {
+      if (author === currentUser || checkAdminAuth()) {
+        db.ref(`posts/${postId}`).remove();
+      }
+    }
+
+    function prepareChatReply(author, text) {
+      activeChatReplyTarget = { author, text };
+      document.getElementById('chat-reply-bar').style.display = 'flex';
+      document.getElementById('chat-reply-text').innerText = `↩️ ${author}님에게 답장: "${text.substring(0, 15)}${text.length > 15 ? '...' : ''}"`;
+      document.getElementById('chat-input').focus();
+    }
+
+    function cancelChatReply() {
+      activeChatReplyTarget = null;
+      document.getElementById('chat-reply-bar').style.display = 'none';
+    }
+
+    function sendChatMessage() {
+      const input = document.getElementById('chat-input');
+      const text = input.value.trim();
+      if (!text) return;
+
+      const msgData = {
+        author: currentUser,
+        text: text,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+      };
+
+      if (activeChatReplyTarget) {
+        msgData.replyTo = activeChatReplyTarget;
+      }
+
+      db.ref('chats').push(msgData).then(() => {
+        input.value = '';
+        cancelChatReply();
+      });
+    }
+
+    function deleteChatMessage(chatId, author) {
+      if (author === currentUser || checkAdminAuth()) {
+        db.ref(`chats/${chatId}`).remove();
+      }
+    }
+
+    /* 🌟 채팅 메시지 렌더링 함수 로직 정돈 */
+    function loadChatMessages() {
+      db.ref('chats').on('value', (snapshot) => {
+        const data = snapshot.val();
+        const chatContainer = document.getElementById('chat-messages');
+        chatContainer.innerHTML = '';
+        if (!data) return;
+
+        Object.keys(data).forEach((chatId) => {
+          const msg = data[chatId];
+          const isMyMsg = msg.author === currentUser;
+
+          const groupDiv = document.createElement('div');
+          groupDiv.className = `msg-group ${isMyMsg ? 'my-msg' : 'other-msg'}`;
+
+          // 답장 인용구가 존재할 때만 HTML 태그 생성
+          let replyQuoteHtml = '';
+          if (msg.replyTo && msg.replyTo.author && msg.replyTo.text) {
+            replyQuoteHtml = `<div class="reply-quote-box"><strong>${escapeHtml(msg.replyTo.author)}</strong>: ${escapeHtml(msg.replyTo.text)}</div>`;
+          }
+
+          groupDiv.innerHTML = `
+            ${!isMyMsg ? `<div class="msg-author">${escapeHtml(msg.author)}</div>` : ''}
+            <div class="msg-bubble-wrap">
+              <div class="msg-bubble">${replyQuoteHtml}<span>${escapeHtml(msg.text)}</span></div>
+              <div class="msg-btn-group">
+                <button class="chat-action-btn" onclick="prepareChatReply('${escapeHtml(msg.author)}', '${escapeHtml(msg.text)}')">답장</button>
+                <button class="chat-action-btn del" onclick="deleteChatMessage('${chatId}', '${escapeHtml(msg.author)}')">${isMyMsg ? '삭제' : '관리자 삭제'}</button>
+              </div>
+            </div>
+          `;
+          chatContainer.appendChild(groupDiv);
+        });
+        scrollToBottom();
+      });
+    }
+
+    function scrollToBottom() {
+      const chatContainer = document.getElementById('chat-messages');
+      setTimeout(() => { chatContainer.scrollTop = chatContainer.scrollHeight; }, 50);
+    }
+
+    function escapeHtml(text) {
+      if (!text) return '';
+      return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
+  </script>
+</body>
+</html>
