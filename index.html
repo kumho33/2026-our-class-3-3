@@ -406,15 +406,22 @@
   </div>
 
   <script>
-    // === Firebase 설정 ===
-    const firebaseConfig = {
-      databaseURL: "https://class33-4b6db-default-rtdb.firebaseio.com"
-    };
+  // === Firebase 설정 ===
+  const firebaseConfig = {
+    apiKey: "AIzaSyBrNNBm45P7dIqwt_aZZG6foP-oQh3SAFM",
+    authDomain: "class33-4b6db.firebaseapp.com",
+    databaseURL: "https://class33-4b6db-default-rtdb.firebaseio.com",
+    projectId: "class33-4b6db",
+    storageBucket: "class33-4b6db.firebasestorage.app",
+    messagingSenderId: "793028948713",
+    appId: "1:793028948713:web:05e710fb766b76f6f87678",
+    measurementId: "G-DXHKVSJRXJ"
+  };
 
-    if (!firebase.apps.length) {
-      firebase.initializeApp(firebaseConfig);
-    }
-    const db = firebase.database();
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
+  const db = firebase.database();
 
     // 관리자 비밀번호
     const ADMIN_PASSWORD = "dlgusdn";
