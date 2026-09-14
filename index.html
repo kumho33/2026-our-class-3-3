@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>2026 3-3 - 게시물 & 채팅방 & 타자 게임</title>
+  <title>2026 3-3 - 게시물 & 채팅방 & 게임</title>
   
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -75,9 +75,26 @@
     }
     .nav-arrow-btn.active { background: #0095f6; color: #fff; }
 
-    /* 정렬 필터 버튼 (PAGE 1 전용) */
+    /* 정렬 및 해시태그 검색 필터 영역 */
+    .search-filter-bar {
+      display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;
+    }
+    .hashtag-search-box {
+      display: flex; gap: 6px;
+    }
+    .hashtag-search-box input {
+      flex: 1; border: 1px solid #dbdbdb; border-radius: 18px;
+      padding: 6px 12px; font-size: 0.82rem; outline: none;
+    }
+    .hashtag-search-box button {
+      background: #0095f6; border: none; color: white; padding: 6px 12px;
+      border-radius: 18px; font-size: 0.78rem; font-weight: bold; cursor: pointer;
+    }
+    .hashtag-reset-btn {
+      background: #8e8e8e !important;
+    }
     .sort-filter-bar {
-      display: flex; justify-content: flex-end; gap: 6px; margin-bottom: 12px;
+      display: flex; justify-content: flex-end; gap: 6px;
     }
     .sort-btn {
       background: #fff; border: 1px solid #dbdbdb; padding: 5px 10px;
@@ -141,12 +158,23 @@
       background: rgba(0,0,0,0.6); color: #fff; padding: 3px 8px;
       border-radius: 12px; font-size: 0.7rem; font-weight: bold;
     }
+    .download-btn {
+      position: absolute; bottom: 10px; right: 10px;
+      background: rgba(0,0,0,0.65); color: #fff; border: none; padding: 4px 10px;
+      border-radius: 12px; font-size: 0.75rem; font-weight: bold; cursor: pointer; z-index: 3;
+      text-decoration: none; display: flex; align-items: center; gap: 4px;
+    }
+    .download-btn:hover { background: rgba(0,0,0,0.85); }
 
     /* 글 내용 영역 */
     .post-caption {
       padding: 12px 15px 6px; font-size: 0.9rem; line-height: 1.45;
       white-space: pre-wrap; color: #262626;
     }
+    .hashtag-link {
+      color: #0095f6; font-weight: bold; cursor: pointer; text-decoration: none;
+    }
+    .hashtag-link:hover { text-decoration: underline; }
 
     /* 하단 좋아요 영역 */
     .post-footer { padding: 6px 15px 12px; }
@@ -270,7 +298,6 @@
       padding: 20px; margin-bottom: 15px; text-align: center;
     }
     
-    /* 🚫 복사 및 드래그 방지 스타일 추가 */
     .typing-prompt {
       font-size: 1.1rem; font-weight: bold; color: #333; margin-bottom: 15px;
       background: #f8f9fa; padding: 15px; border-radius: 8px; word-break: keep-all; line-height: 1.4;
@@ -345,22 +372,29 @@
       <div class="nav-btn-group">
         <button class="nav-arrow-btn active" id="nav-btn-1" onclick="switchPage(1)">게시물</button>
         <button class="nav-arrow-btn" id="nav-btn-2" onclick="switchPage(2)">채팅방</button>
-        <button class="nav-arrow-btn" id="nav-btn-3" onclick="switchPage(3)">타자 게임</button>
+        <button class="nav-arrow-btn" id="nav-btn-3" onclick="switchPage(3)">게임</button>
       </div>
     </div>
 
     <div class="page-content active" id="page-1">
-      <div class="sort-filter-bar">
-        <button class="sort-btn active" id="sort-recent" onclick="setPostSort('recent')">최신순</button>
-        <button class="sort-btn" id="sort-popular" onclick="setPostSort('popular')">인기순 (❤️)</button>
-        <button class="sort-btn" id="sort-oldest" onclick="setPostSort('oldest')">오래된순</button>
+      <div class="search-filter-bar">
+        <div class="hashtag-search-box">
+          <input type="text" id="hashtag-search-input" placeholder="해시태그 검색 (예: 체육대회, 수련회)" onkeyup="if(event.keyCode===13) filterPostsByTag()">
+          <button onclick="filterPostsByTag()">검색</button>
+          <button class="hashtag-reset-btn" onclick="resetHashtagFilter()">초기화</button>
+        </div>
+        <div class="sort-filter-bar">
+          <button class="sort-btn active" id="sort-recent" onclick="setPostSort('recent')">최신순</button>
+          <button class="sort-btn" id="sort-popular" onclick="setPostSort('popular')">인기순 (❤️)</button>
+          <button class="sort-btn" id="sort-oldest" onclick="setPostSort('oldest')">오래된순</button>
+        </div>
       </div>
 
       <div class="create-post-card">
-        <textarea id="post-caption-input" rows="2" placeholder="문구 입력... (사진/영상과 함께 게시해보세요)"></textarea>
+        <textarea id="post-caption-input" rows="2" placeholder="문구 입력... (예: 오늘 신나는 #체육대회 사진!)"></textarea>
         <div class="file-select-preview" id="file-preview-text">선택된 미디어 없음 (복수 선택 가능)</div>
         <div class="post-btn-group">
-          <label class="upload-label" for="post-files">📷 사진/동영상 선택</label>
+          <label class="upload-label" for="post-files">📷 사진/동영상 선택 (복수선택 가능)</label>
           <input type="file" id="post-files" accept="image/*,video/*" multiple style="display:none;" onchange="updateFilePreview()">
           <button class="submit-post-btn" onclick="uploadPost()">게시</button>
         </div>
@@ -394,7 +428,6 @@
 
     <div class="page-content" id="page-3">
       <div class="typing-card">
-        <!-- 🚫 복사, 우클릭, 잘라내기 차단 속성 추가 -->
         <div class="typing-prompt" id="typing-prompt" oncontextmenu="return false;" oncopy="return false;" oncut="return false;">문장을 불러오는 중...</div>
         <div class="typing-input-box">
           <input type="text" id="typing-input" class="typing-input" 
@@ -444,17 +477,16 @@
   }
   const db = firebase.database();
 
-    // 관리자 비밀번호
     const ADMIN_PASSWORD = "dlgusdn";
 
     let currentUser = "";
     let currentPostSort = 'recent';
+    let currentSearchTag = '';
     let rawPostsData = {};
 
     let activeReplyTarget = {}; 
     let activeChatReplyTarget = null; 
 
-    // 타자 게임 관련 변수 (맞춤법 수정 완료)
     const typingSentences = [
       "동해물과 백두산이 마르고 닳도록 하나님이 보우하사 우리나라 만세",
       "인생은 짧고 예술은 길다, 시간을 아껴 쓰고 최선을 다하자.",
@@ -467,28 +499,24 @@
     let currentSentence = "";
     let userBestCPM = 0;
 
-    /* 💡 [한컴타자연습 공식 기준] 자모 분리 타수 계산 함수 */
     function countHancomKeystrokes(text) {
       let count = 0;
       for (let i = 0; i < text.length; i++) {
         const code = text.charCodeAt(i);
-        if (code >= 0xAC00 && code <= 0xD7A3) { // 완성형 한글
+        if (code >= 0xAC00 && code <= 0xD7A3) {
           const uniIndex = code - 0xAC00;
           const cho = Math.floor(uniIndex / 588);
           const jung = Math.floor((uniIndex % 588) / 28);
           const jong = uniIndex % 28;
 
-          // 초성 타수 (쌍자음 2타)
           const choStrokes = [1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1];
-          // 중성 타수 (복합모음 2타)
           const jungStrokes = [1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 2, 2, 1, 1, 2, 2, 2, 1, 1, 1, 1];
-          // 종성 받침 타수 (겹받침 2타)
           const jongStrokes = [0, 1, 2, 2, 1, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
           count += choStrokes[cho] + jungStrokes[jung] + jongStrokes[jong];
-        } else if ((code >= 0x3131 && code <= 0x318E)) { // 한글 자모
+        } else if ((code >= 0x3131 && code <= 0x318E)) {
           count += 1;
-        } else { // 영문, 숫자, 공백, 특수문자
+        } else {
           count += 1;
         }
       }
@@ -527,7 +555,6 @@
       document.getElementById('user-badge-text').innerText = `👤 ${currentUser}님`;
     }
 
-    /* 닉네임 변경 기능 */
     function changeNickname() {
       const newName = prompt("새로운 닉네임을 입력하세요:", currentUser);
       if (newName && newName.trim() !== "" && newName.trim() !== currentUser) {
@@ -546,7 +573,7 @@
       document.getElementById('nav-btn-2').classList.toggle('active', pageNum === 2);
       document.getElementById('nav-btn-3').classList.toggle('active', pageNum === 3);
 
-      const titleMap = { 1: '📱 게시물', 2: '💬 채팅방', 3: '⌨️ 타자 게임' };
+      const titleMap = { 1: '📱 게시물', 2: '💬 채팅방', 3: '⌨️ 게임' };
       document.getElementById('current-page-title').innerText = titleMap[pageNum];
 
       if (pageNum === 2) scrollToBottom();
@@ -586,7 +613,7 @@
             db.ref('notice').set(newNotice.trim());
           }
         } else if (action === "2") {
-          if (confirm("고정된 공지사항을 삭제하시겠습니까?")) {
+          if (confirm("정말로 고정된 공지사항을 삭제하시겠습니까?")) {
             db.ref('notice').remove();
           }
         }
@@ -594,7 +621,7 @@
     }
 
     /* ==========================================
-       📸 PAGE 1. 게시물 & 정렬 관련 로직
+       📸 PAGE 1. 게시물 & 복수 선택 & 삭제 확인
     ========================================== */
     function updateFilePreview() {
       const files = document.getElementById('post-files').files;
@@ -650,6 +677,30 @@
       renderPosts();
     }
 
+    function filterPostsByTag(tag) {
+      if (tag) {
+        currentSearchTag = tag.replace('#', '').trim().toLowerCase();
+        document.getElementById('hashtag-search-input').value = currentSearchTag;
+      } else {
+        const inputVal = document.getElementById('hashtag-search-input').value.trim();
+        currentSearchTag = inputVal.replace('#', '').toLowerCase();
+      }
+      renderPosts();
+    }
+
+    function resetHashtagFilter() {
+      currentSearchTag = '';
+      document.getElementById('hashtag-search-input').value = '';
+      renderPosts();
+    }
+
+    function formatHashtags(text) {
+      const escaped = escapeHtml(text);
+      return escaped.replace(/#([가-힣a-zA-Z0-9_]+)/g, function(match, tagName) {
+        return `<span class="hashtag-link" onclick="filterPostsByTag('${tagName}')">#${tagName}</span>`;
+      });
+    }
+
     function loadPosts() {
       db.ref('posts').on('value', (snapshot) => {
         rawPostsData = snapshot.val() || {};
@@ -661,10 +712,22 @@
       const feed = document.getElementById('feed-container');
       feed.innerHTML = '';
 
-      const postKeys = Object.keys(rawPostsData);
+      let postKeys = Object.keys(rawPostsData);
       if (postKeys.length === 0) {
         feed.innerHTML = '<div style="text-align:center; color:#8e8e8e; padding:30px 0;">게시물이 없습니다. 첫 소식을 남겨보세요!</div>';
         return;
+      }
+
+      if (currentSearchTag !== '') {
+        postKeys = postKeys.filter(key => {
+          const caption = (rawPostsData[key].caption || '').toLowerCase();
+          return caption.includes(`#${currentSearchTag}`) || caption.includes(currentSearchTag);
+        });
+
+        if (postKeys.length === 0) {
+          feed.innerHTML = `<div style="text-align:center; color:#8e8e8e; padding:30px 0;">'#${escapeHtml(currentSearchTag)}' 검색 결과가 없습니다.</div>`;
+          return;
+        }
       }
 
       postKeys.sort((a, b) => {
@@ -698,9 +761,21 @@
         if (media.length > 0) {
           let mediaItems = media.map((item, idx) => {
             const activeClass = idx === 0 ? 'active' : '';
+            const downloadFileName = `download_${postId}_${idx + 1}.${item.type === 'image' ? 'png' : 'mp4'}`;
+            
             return item.type === 'image'
-              ? `<img src="${item.url}" class="media-item ${activeClass}" id="media-${postId}-${idx}">`
-              : `<video src="${item.url}" controls class="media-item ${activeClass}" id="media-${postId}-${idx}"></video>`;
+              ? `
+                <div class="media-item ${activeClass}" id="media-${postId}-${idx}">
+                  <img src="${item.url}" style="width:100%; height:100%; object-fit:contain;">
+                  <a href="${item.url}" download="${downloadFileName}" class="download-btn">💾 다운로드</a>
+                </div>
+              `
+              : `
+                <div class="media-item ${activeClass}" id="media-${postId}-${idx}">
+                  <video src="${item.url}" controls style="width:100%; height:100%; object-fit:contain;"></video>
+                  <a href="${item.url}" download="${downloadFileName}" class="download-btn">💾 다운로드</a>
+                </div>
+              `;
           }).join('');
 
           mediaHtml = `
@@ -774,7 +849,7 @@
 
           ${mediaHtml}
 
-          ${post.caption ? `<div class="post-caption"><strong>${escapeHtml(post.author)}</strong> ${escapeHtml(post.caption)} ${post.isEdited ? '<span class="edited-mark">(수정됨)</span>' : ''}</div>` : ''}
+          ${post.caption ? `<div class="post-caption"><strong>${escapeHtml(post.author)}</strong> ${formatHashtags(post.caption)} ${post.isEdited ? '<span class="edited-mark">(수정됨)</span>' : ''}</div>` : ''}
 
           <div class="post-footer">
             <div class="post-actions">
@@ -878,21 +953,28 @@
       });
     }
 
+    /* 🗑️ 게시물, 댓글, 대댓글 삭제 시 확인창 적용 */
     function deleteComment(postId, commentId, author) {
       if (author === currentUser || checkAdminAuth()) {
-        db.ref(`posts/${postId}/comments/${commentId}`).remove();
+        if (confirm("정말로 이 댓글을 삭제하시겠습니까?")) {
+          db.ref(`posts/${postId}/comments/${commentId}`).remove();
+        }
       }
     }
 
     function deleteReply(postId, commentId, replyId, author) {
       if (author === currentUser || checkAdminAuth()) {
-        db.ref(`posts/${postId}/comments/${commentId}/replies/${replyId}`).remove();
+        if (confirm("정말로 이 답글을 삭제하시겠습니까?")) {
+          db.ref(`posts/${postId}/comments/${commentId}/replies/${replyId}`).remove();
+        }
       }
     }
 
     function deletePost(postId, author) {
       if (author === currentUser || checkAdminAuth()) {
-        db.ref(`posts/${postId}`).remove();
+        if (confirm("정말로 이 게시물을 삭제하시겠습니까? (복구할 수 없습니다)")) {
+          db.ref(`posts/${postId}`).remove();
+        }
       }
     }
 
@@ -952,9 +1034,12 @@
       });
     }
 
+    /* 🗑️ 채팅 메시지 삭제 시 확인창 적용 */
     function deleteChatMessage(chatId, author) {
       if (author === currentUser || checkAdminAuth()) {
-        db.ref(`chats/${chatId}`).remove();
+        if (confirm("정말로 이 채팅 메시지를 삭제하시겠습니까?")) {
+          db.ref(`chats/${chatId}`).remove();
+        }
       }
     }
 
@@ -1032,8 +1117,8 @@
       }
 
       if (typingStartTime && inputVal.length > 0) {
-        const elapsedTime = (new Date() - typingStartTime) / 1000 / 60; // 분 단위
-        const keystrokes = countHancomKeystrokes(inputVal); // 한컴타자 공식 자모 분리 타수
+        const elapsedTime = (new Date() - typingStartTime) / 1000 / 60;
+        const keystrokes = countHancomKeystrokes(inputVal);
         const cpm = Math.round(keystrokes / elapsedTime);
         document.getElementById('current-cpm').innerText = isNaN(cpm) || !isFinite(cpm) ? 0 : cpm;
       }
@@ -1087,7 +1172,6 @@
           ranks.push(childSnap.val());
         });
 
-        // 최고 타수순 정렬
         ranks.sort((a, b) => b.score - a.score);
 
         ranks.slice(0, 10).forEach((rank, idx) => {
