@@ -5,8 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>2026 3-3 - 게시물 & 채팅방 & 게임</title>
   
+  <!-- Firebase SDK (v8) -->
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
   <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+  
+  <!-- 이미지 압축 라이브러리 (용량 무료 유지용) -->
+  <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.mjs" type="module"></script>
 
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -17,7 +21,7 @@
       padding: 15px 10px; min-height: 100vh;
     }
 
-    /* 1. 출석부 입장 모달 */
+    /* 로그인 모달 */
     #login-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(255, 255, 255, 0.96); backdrop-filter: blur(8px);
@@ -56,7 +60,7 @@
     .user-badge { font-size: 0.85rem; color: #0095f6; font-weight: bold; margin-top: 2px; display: flex; justify-content: center; align-items: center; gap: 8px; }
     .change-name-btn { background: none; border: 1px solid #0095f6; color: #0095f6; font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; cursor: pointer; }
 
-    /* 페이지 제어 및 네비게이션 */
+    /* 페이지 네비게이션 */
     .page-content { display: none; }
     .page-content.active { display: block; }
 
@@ -75,271 +79,113 @@
     }
     .nav-arrow-btn.active { background: #0095f6; color: #fff; }
 
-    /* 정렬 및 해시태그 검색 필터 영역 */
-    .search-filter-bar {
-      display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;
-    }
-    .hashtag-search-box {
-      display: flex; gap: 6px;
-    }
-    .hashtag-search-box input {
-      flex: 1; border: 1px solid #dbdbdb; border-radius: 18px;
-      padding: 6px 12px; font-size: 0.82rem; outline: none;
-    }
-    .hashtag-search-box button {
-      background: #0095f6; border: none; color: white; padding: 6px 12px;
-      border-radius: 18px; font-size: 0.78rem; font-weight: bold; cursor: pointer;
-    }
-    .hashtag-reset-btn {
-      background: #8e8e8e !important;
-    }
-    .sort-filter-bar {
-      display: flex; justify-content: flex-end; gap: 6px;
-    }
-    .sort-btn {
-      background: #fff; border: 1px solid #dbdbdb; padding: 5px 10px;
-      border-radius: 16px; font-size: 0.75rem; color: #666; cursor: pointer; font-weight: 600;
-    }
-    .sort-btn.active {
-      background: #262626; color: #fff; border-color: #262626;
-    }
+    /* 검색 및 필터 */
+    .search-filter-bar { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+    .hashtag-search-box { display: flex; gap: 6px; }
+    .hashtag-search-box input { flex: 1; border: 1px solid #dbdbdb; border-radius: 18px; padding: 6px 12px; font-size: 0.82rem; outline: none; }
+    .hashtag-search-box button { background: #0095f6; border: none; color: white; padding: 6px 12px; border-radius: 18px; font-size: 0.78rem; font-weight: bold; cursor: pointer; }
+    .hashtag-reset-btn { background: #8e8e8e !important; }
+    .sort-filter-bar { display: flex; justify-content: flex-end; gap: 6px; }
+    .sort-btn { background: #fff; border: 1px solid #dbdbdb; padding: 5px 10px; border-radius: 16px; font-size: 0.75rem; color: #666; cursor: pointer; font-weight: 600; }
+    .sort-btn.active { background: #262626; color: #fff; border-color: #262626; }
 
-    /* 📸 게시물 작성 카드 */
-    .create-post-card {
-      background: #fff; border: 1px solid #dbdbdb; border-radius: 12px;
-      padding: 15px; margin-bottom: 15px;
-    }
-    .create-post-card textarea {
-      width: 100%; border: 1px solid #efefef; border-radius: 8px;
-      padding: 10px; font-size: 0.9rem; resize: none; outline: none; margin-bottom: 10px;
-    }
-    .file-select-preview { font-size: 0.78rem; color: #8e8e8e; margin-bottom: 10px; }
+    /* 게시물 작성 */
+    .create-post-card { background: #fff; border: 1px solid #dbdbdb; border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+    .create-post-card textarea { width: 100%; border: 1px solid #efefef; border-radius: 8px; padding: 10px; font-size: 0.9rem; resize: none; outline: none; margin-bottom: 10px; }
+
+    .preview-container { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px; }
+    .preview-container:empty { display: none; }
+    .preview-item { position: relative; width: 70px; height: 70px; flex-shrink: 0; border-radius: 8px; overflow: hidden; border: 1px solid #ddd; background: #000; }
+    .preview-item img, .preview-item video { width: 100%; height: 100%; object-fit: cover; }
+    .preview-remove-btn { position: absolute; top: 2px; right: 2px; background: rgba(0,0,0,0.7); color: #fff; border: none; border-radius: 50%; width: 18px; height: 18px; font-size: 11px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
     .post-btn-group { display: flex; justify-content: space-between; align-items: center; }
-    .upload-label {
-      background: #efefef; padding: 7px 12px; border-radius: 6px;
-      font-size: 0.8rem; font-weight: 600; cursor: pointer;
-    }
-    .submit-post-btn {
-      background: #0095f6; color: white; border: none; padding: 7px 16px;
-      border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer;
-    }
+    .upload-label { background: #efefef; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+    .submit-post-btn { background: #0095f6; color: white; border: none; padding: 7px 16px; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
 
-    /* 📱 게시물 카드 */
-    .post-card {
-      background: #fff; border: 1px solid #dbdbdb; border-radius: 12px;
-      margin-bottom: 20px; overflow: hidden;
-    }
-    .post-header {
-      display: flex; justify-content: space-between; align-items: center;
-      padding: 12px 15px;
-    }
+    /* 게시물 카드 */
+    .post-card { background: #fff; border: 1px solid #dbdbdb; border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
+    .post-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; }
     .post-author { font-weight: bold; font-size: 0.95rem; color: #111; }
     .post-time { font-size: 0.75rem; color: #8e8e8e; }
 
-    /* 슬라이드 미디어 영역 */
-    .media-slider {
-      position: relative; width: 100%; aspect-ratio: 1 / 1;
-      background: #000; overflow: hidden; display: flex; align-items: center;
-    }
-    .media-item {
-      width: 100%; height: 100%; object-fit: contain; display: none;
-    }
+    .media-slider { position: relative; width: 100%; aspect-ratio: 1 / 1; background: #000; overflow: hidden; display: flex; align-items: center; }
+    .media-item { width: 100%; height: 100%; object-fit: contain; display: none; }
     .media-item.active { display: block; }
-    .slide-btn {
-      position: absolute; top: 50%; transform: translateY(-50%);
-      background: rgba(0,0,0,0.5); color: #fff; border: none;
-      width: 30px; height: 30px; border-radius: 50%; cursor: pointer;
-      font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 2;
-    }
+    .slide-btn { position: absolute; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.5); color: #fff; border: none; width: 30px; height: 30px; border-radius: 50%; cursor: pointer; font-weight: bold; display: flex; align-items: center; justify-content: center; z-index: 2; }
     .slide-btn.prev { left: 8px; }
     .slide-btn.next { right: 8px; }
-    .slide-counter {
-      position: absolute; top: 10px; right: 10px;
-      background: rgba(0,0,0,0.6); color: #fff; padding: 3px 8px;
-      border-radius: 12px; font-size: 0.7rem; font-weight: bold;
-    }
-    .download-btn {
-      position: absolute; bottom: 10px; right: 10px;
-      background: rgba(0,0,0,0.65); color: #fff; border: none; padding: 4px 10px;
-      border-radius: 12px; font-size: 0.75rem; font-weight: bold; cursor: pointer; z-index: 3;
-      text-decoration: none; display: flex; align-items: center; gap: 4px;
-    }
-    .download-btn:hover { background: rgba(0,0,0,0.85); }
+    .slide-counter { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.6); color: #fff; padding: 3px 8px; border-radius: 12px; font-size: 0.7rem; font-weight: bold; }
+    .download-btn { position: absolute; bottom: 10px; right: 10px; background: rgba(0,0,0,0.65); color: #fff; border: none; padding: 4px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: bold; cursor: pointer; z-index: 3; text-decoration: none; display: flex; align-items: center; gap: 4px; }
 
-    /* 글 내용 영역 */
-    .post-caption {
-      padding: 12px 15px 6px; font-size: 0.9rem; line-height: 1.45;
-      white-space: pre-wrap; color: #262626;
-    }
-    .hashtag-link {
-      color: #0095f6; font-weight: bold; cursor: pointer; text-decoration: none;
-    }
-    .hashtag-link:hover { text-decoration: underline; }
-
-    /* 하단 좋아요 영역 */
+    .post-caption { padding: 12px 15px 6px; font-size: 0.9rem; line-height: 1.45; white-space: pre-wrap; color: #262626; }
+    .hashtag-link { color: #0095f6; font-weight: bold; cursor: pointer; text-decoration: none; }
     .post-footer { padding: 6px 15px 12px; }
     .post-actions { display: flex; align-items: center; gap: 8px; }
     .like-btn { background: none; border: none; font-size: 1.2rem; cursor: pointer; }
     .like-count { font-size: 0.85rem; font-weight: bold; }
 
-    /* 댓글 & 대댓글 영역 */
-    .comments-section {
-      border-top: 1px solid #efefef; padding: 12px 15px; background: #fafafa;
-    }
+    /* 댓글 */
+    .comments-section { border-top: 1px solid #efefef; padding: 12px 15px; background: #fafafa; }
     .comment-item { margin-bottom: 8px; font-size: 0.83rem; }
     .comment-main { display: flex; justify-content: space-between; align-items: flex-start; }
     .comment-author { font-weight: bold; margin-right: 5px; }
-    .action-btn {
-      background: none; border: none; color: #8e8e8e; font-size: 0.72rem;
-      cursor: pointer; margin-left: 6px;
-    }
+    .action-btn { background: none; border: none; color: #8e8e8e; font-size: 0.72rem; cursor: pointer; margin-left: 6px; }
     .action-btn.liked { color: #ed4956; font-weight: bold; }
     .action-btn.del-btn { color: #ff6b6b; }
-    
     .replies-list { margin-left: 18px; margin-top: 6px; border-left: 2px solid #e0e0e0; padding-left: 8px; }
 
-    /* 댓글 입력창 */
     .comment-input-box { display: flex; gap: 6px; margin-top: 10px; }
-    .comment-input-box input {
-      flex: 1; border: 1px solid #dbdbdb; border-radius: 18px;
-      padding: 6px 12px; font-size: 0.82rem; outline: none;
-    }
-    .comment-input-box button {
-      background: none; border: none; color: #0095f6;
-      font-weight: bold; font-size: 0.82rem; cursor: pointer;
-    }
+    .comment-input-box input { flex: 1; border: 1px solid #dbdbdb; border-radius: 18px; padding: 6px 12px; font-size: 0.82rem; outline: none; }
+    .comment-input-box button { background: none; border: none; color: #0095f6; font-weight: bold; font-size: 0.82rem; cursor: pointer; }
 
-    /* 💬 PAGE 2: 채팅방 스타일 */
-    .chat-card {
-      background: #b2c7da; border-radius: 16px; padding: 12px;
-      display: flex; flex-direction: column; height: 500px;
-    }
+    /* 채팅방 */
+    .chat-card { background: #b2c7da; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; height: 500px; }
+    .chat-header-bar { display: flex; align-items: center; gap: 8px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px); padding: 8px 12px; border-radius: 10px; margin-bottom: 8px; }
+    .pin-notice-btn { background: #fff; border: 1px solid #ddd; border-radius: 8px; padding: 4px 8px; font-size: 0.8rem; font-weight: bold; cursor: pointer; white-space: nowrap; }
+    .chat-notice-text { flex: 1; font-size: 0.82rem; color: #222; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-    .chat-header-bar {
-      display: flex; align-items: center; gap: 8px;
-      background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(4px);
-      padding: 8px 12px; border-radius: 10px; margin-bottom: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.05);
-    }
-    .pin-notice-btn {
-      background: #fff; border: 1px solid #ddd; border-radius: 8px;
-      padding: 4px 8px; font-size: 0.8rem; font-weight: bold;
-      cursor: pointer; display: flex; align-items: center; gap: 4px;
-      white-space: nowrap; flex-shrink: 0;
-    }
-    .pin-notice-btn:hover { background: #f0f0f0; }
-    .chat-notice-text {
-      flex: 1; font-size: 0.82rem; color: #222; font-weight: 500;
-      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    }
-
-    .chat-messages {
-      flex: 1; overflow-y: auto; display: flex; flex-direction: column;
-      gap: 6px; padding: 5px;
-    }
-    
-    .msg-group {
-      display: flex; flex-direction: column; max-width: 80%; width: fit-content;
-    }
+    .chat-messages { flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 5px; }
+    .msg-group { display: flex; flex-direction: column; max-width: 80%; width: fit-content; }
     .msg-group.my-msg { align-self: flex-end; align-items: flex-end; }
     .msg-group.other-msg { align-self: flex-start; align-items: flex-start; }
     .msg-author { font-size: 0.72rem; color: #444; margin-bottom: 2px; font-weight: 500; }
-
-    .msg-bubble-wrap {
-      display: flex; align-items: flex-end; gap: 4px; width: fit-content; max-width: 100%;
-    }
+    .msg-bubble-wrap { display: flex; align-items: flex-end; gap: 4px; width: fit-content; max-width: 100%; }
     .my-msg .msg-bubble-wrap { flex-direction: row-reverse; }
-
-    .msg-bubble {
-      padding: 6px 10px !important; margin: 0 !important;
-      min-height: 0 !important; height: auto !important; line-height: 1.35 !important;
-      border-radius: 12px; font-size: 0.85rem; word-break: break-word; white-space: pre-wrap;
-      display: inline-block; max-width: 100%; box-sizing: border-box;
-    }
+    .msg-bubble { padding: 6px 10px !important; margin: 0 !important; border-radius: 12px; font-size: 0.85rem; word-break: break-word; white-space: pre-wrap; display: inline-block; max-width: 100%; }
     .my-msg .msg-bubble { background: #ffeb33; color: #222; border-top-right-radius: 2px; }
     .other-msg .msg-bubble { background: #fff; color: #222; border-top-left-radius: 2px; }
-
     .msg-time { font-size: 0.65rem; color: #555; white-space: nowrap; align-self: flex-end; }
+    .msg-btn-group { display: flex; flex-direction: row; align-items: flex-end; gap: 2px; }
 
-    .msg-btn-group {
-      display: flex; flex-direction: row; align-items: flex-end; gap: 2px;
-      height: fit-content; margin-bottom: 1px;
-    }
-
-    .reply-quote-box {
-      background: rgba(0, 0, 0, 0.08); border-left: 3px solid #555;
-      padding: 3px 6px; border-radius: 4px; font-size: 0.75rem;
-      color: #333; margin-bottom: 4px; line-height: 1.2;
-      word-break: break-all; width: fit-content; max-width: 100%;
-    }
-
-    .chat-action-btn {
-      background: none; border: none; font-size: 0.7rem; color: #555;
-      cursor: pointer; padding: 0 2px; white-space: nowrap; line-height: 1;
-    }
+    .reply-quote-box { background: rgba(0, 0, 0, 0.08); border-left: 3px solid #555; padding: 3px 6px; border-radius: 4px; font-size: 0.75rem; color: #333; margin-bottom: 4px; }
+    .chat-action-btn { background: none; border: none; font-size: 0.7rem; color: #555; cursor: pointer; padding: 0 2px; }
     .chat-action-btn.edit { color: #0095f6; }
     .chat-action-btn.del { color: #d9534f; }
 
-    .chat-reply-preview-bar {
-      display: none; justify-content: space-between; align-items: center;
-      background: #e9ecef; padding: 6px 10px; border-radius: 8px;
-      font-size: 0.78rem; color: #495057; margin-top: 6px;
-    }
-
+    .chat-reply-preview-bar { display: none; justify-content: space-between; align-items: center; background: #e9ecef; padding: 6px 10px; border-radius: 8px; font-size: 0.78rem; color: #495057; margin-top: 6px; }
     .chat-input-area { display: flex; gap: 6px; margin-top: 6px; background: #fff; padding: 6px; border-radius: 10px; }
     .chat-input-area input { flex: 1; border: none; outline: none; padding: 6px; font-size: 0.85rem; }
     .chat-input-area button { background: #ffeb33; border: none; padding: 6px 14px; border-radius: 6px; font-weight: bold; font-size: 0.8rem; cursor: pointer; }
-
     .edited-mark { font-size: 0.7rem; color: #8e8e8e; margin-left: 4px; }
 
-    /* ⌨️ PAGE 3: 타자 게임 스타일 */
-    .typing-card {
-      background: #fff; border: 1px solid #dbdbdb; border-radius: 12px;
-      padding: 20px; margin-bottom: 15px; text-align: center;
-    }
+    /* 타자 게임 */
+    .typing-card { background: #fff; border: 1px solid #dbdbdb; border-radius: 12px; padding: 20px; margin-bottom: 15px; text-align: center; }
+    .typing-prompt { font-size: 1.1rem; font-weight: bold; color: #333; margin-bottom: 15px; background: #f8f9fa; padding: 15px; border-radius: 8px; word-break: keep-all; line-height: 1.4; user-select: none; }
+    .typing-input-box { display: flex; gap: 6px; margin-bottom: 10px; }
+    .typing-input { flex: 1; padding: 12px; font-size: 16px; border: 2px solid #0095f6; border-radius: 8px; outline: none; text-align: center; }
     
-    .typing-prompt {
-      font-size: 1.1rem; font-weight: bold; color: #333; margin-bottom: 15px;
-      background: #f8f9fa; padding: 15px; border-radius: 8px; word-break: keep-all; line-height: 1.4;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-    }
+    .typing-btn-group { display: flex; gap: 4px; }
+    .typing-submit-btn { background: #0095f6; color: white; border: none; padding: 0 14px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.88rem; }
+    .typing-reset-btn { background: #ff6b6b; color: white; border: none; padding: 0 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 0.85rem; }
     
-    .typing-input-box {
-      display: flex; gap: 6px; margin-bottom: 10px;
-    }
-    .typing-input {
-      flex: 1; padding: 12px; font-size: 16px; border: 2px solid #0095f6;
-      border-radius: 8px; outline: none; text-align: center;
-    }
-    .typing-submit-btn {
-      background: #0095f6; color: white; border: none; padding: 0 16px;
-      border-radius: 8px; font-weight: bold; cursor: pointer; white-space: nowrap; font-size: 0.9rem;
-    }
-    .typing-stats {
-      display: flex; justify-content: space-around; font-size: 0.9rem; font-weight: bold;
-      color: #555; margin-top: 10px; background: #efefef; padding: 10px; border-radius: 8px;
-    }
-    .ranking-card {
-      background: #fff; border: 1px solid #dbdbdb; border-radius: 12px;
-      padding: 15px;
-    }
-    .ranking-header {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
-      border-bottom: 2px solid #f0f0f0; padding-bottom: 8px;
-    }
+    .typing-stats { display: flex; justify-content: space-around; font-size: 0.9rem; font-weight: bold; color: #555; margin-top: 10px; background: #efefef; padding: 10px; border-radius: 8px; }
+    .ranking-card { background: #fff; border: 1px solid #dbdbdb; border-radius: 12px; padding: 15px; }
+    .ranking-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 2px solid #f0f0f0; padding-bottom: 8px; }
     .ranking-header h3 { font-size: 1rem; color: #111; }
-    .reset-rank-btn {
-      background: #ff6b6b; color: white; border: none; border-radius: 6px;
-      padding: 4px 8px; font-size: 0.75rem; font-weight: bold; cursor: pointer;
-    }
+    .reset-rank-btn { background: #ff6b6b; color: white; border: none; border-radius: 6px; padding: 4px 8px; font-size: 0.75rem; font-weight: bold; cursor: pointer; }
     .ranking-list { list-style: none; }
-    .ranking-item {
-      display: flex; justify-content: space-between; padding: 8px 5px;
-      border-bottom: 1px dashed #eee; font-size: 0.88rem;
-    }
+    .ranking-item { display: flex; justify-content: space-between; padding: 8px 5px; border-bottom: 1px dashed #eee; font-size: 0.88rem; }
     .ranking-item:first-child { font-weight: bold; color: #d97706; }
     .ranking-item:nth-child(2) { font-weight: bold; color: #4b5563; }
     .ranking-item:nth-child(3) { font-weight: bold; color: #b45309; }
@@ -376,10 +222,11 @@
       </div>
     </div>
 
+    <!-- PAGE 1: 게시물 -->
     <div class="page-content active" id="page-1">
       <div class="search-filter-bar">
         <div class="hashtag-search-box">
-          <input type="text" id="hashtag-search-input" placeholder="해시태그 검색 (예: 체육대회, 수련회)" onkeyup="if(event.keyCode===13) filterPostsByTag()">
+          <input type="text" id="hashtag-search-input" placeholder="해시태그 검색 (예: 체육대회)" onkeyup="if(event.keyCode===13) filterPostsByTag()">
           <button onclick="filterPostsByTag()">검색</button>
           <button class="hashtag-reset-btn" onclick="resetHashtagFilter()">초기화</button>
         </div>
@@ -392,11 +239,11 @@
 
       <div class="create-post-card">
         <textarea id="post-caption-input" rows="2" placeholder="문구 입력... (예: 오늘 신나는 #체육대회 사진!)"></textarea>
-        <div class="file-select-preview" id="file-preview-text">선택된 미디어 없음 (복수 선택 가능)</div>
+        <div class="preview-container" id="media-preview-container"></div>
         <div class="post-btn-group">
-          <label class="upload-label" for="post-files">📷 사진/동영상 선택 (복수선택 가능)</label>
-          <input type="file" id="post-files" accept="image/*,video/*" multiple style="display:none;" onchange="updateFilePreview()">
-          <button class="submit-post-btn" onclick="uploadPost()">게시</button>
+          <label class="upload-label" for="post-files">📷 사진/동영상 선택</label>
+          <input type="file" id="post-files" accept="image/*,video/*" multiple style="display:none;" onchange="handleFileSelect(event)">
+          <button class="submit-post-btn" id="post-submit-btn" onclick="uploadPost()">게시</button>
         </div>
       </div>
 
@@ -405,6 +252,7 @@
       </div>
     </div>
 
+    <!-- PAGE 2: 채팅방 -->
     <div class="page-content" id="page-2">
       <div class="chat-card">
         <div class="chat-header-bar">
@@ -426,6 +274,7 @@
       </div>
     </div>
 
+    <!-- PAGE 3: 타자 게임 -->
     <div class="page-content" id="page-3">
       <div class="typing-card">
         <div class="typing-prompt" id="typing-prompt" oncontextmenu="return false;" oncopy="return false;" oncut="return false;">문장을 불러오는 중...</div>
@@ -435,7 +284,10 @@
                  autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
                  oninput="handleTypingInput()" 
                  onkeydown="if(event.keyCode===13 || event.key==='Enter') { event.preventDefault(); checkTypingResult(); }">
-          <button class="typing-submit-btn" onclick="checkTypingResult()">완료</button>
+          <div class="typing-btn-group">
+            <button class="typing-submit-btn" onclick="checkTypingResult()">완료</button>
+            <button class="typing-reset-btn" onclick="manualResetTyping()">🔄 초기화</button>
+          </div>
         </div>
         <div class="typing-stats">
           <span>실시간 타수: <strong id="current-cpm">0</strong> 타/분</span>
@@ -459,24 +311,28 @@
     </footer>
   </div>
 
+  <script type="module">
+    import imageCompression from 'https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/+esm';
+    window.imageCompression = imageCompression;
+  </script>
+
   <script>
-  // === Firebase 설정 ===
-  const firebaseConfig = {
-    apiKey: "AIzaSyBrNNBm45P7dIqwt_aZZG6foP-oQh3SAFM",
-    authDomain: "class33-4b6db.firebaseapp.com",
-    databaseURL: "https://class33-4b6db-default-rtdb.firebaseio.com",
-    projectId: "class33-4b6db",
-    storageBucket: "class33-4b6db.firebasestorage.app",
-    messagingSenderId: "793028948713",
-    appId: "1:793028948713:web:05e710fb766b76f6f87678",
-    measurementId: "G-DXHKVSJRXJ"
-  };
+    // === Firebase 설정 ===
+    const firebaseConfig = {
+      apiKey: "AIzaSyBrNNBm45P7dIqwt_aZZG6foP-oQh3SAFM",
+      authDomain: "class33-4b6db.firebaseapp.com",
+      databaseURL: "https://class33-4b6db-default-rtdb.firebaseio.com",
+      projectId: "class33-4b6db",
+      storageBucket: "class33-4b6db.firebasestorage.app",
+      messagingSenderId: "793028948713",
+      appId: "1:793028948713:web:05e710fb766b76f6f87678",
+      measurementId: "G-DXHKVSJRXJ"
+    };
 
-  if (!firebase.apps.length) {
-    firebase.initializeApp(firebaseConfig);
-  }
-  const db = firebase.database();
-
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
+    }
+    const db = firebase.database();
     const ADMIN_PASSWORD = "dlgusdn";
 
     let currentUser = "";
@@ -484,16 +340,29 @@
     let currentSearchTag = '';
     let rawPostsData = {};
 
+    let selectedFiles = [];
     let activeReplyTarget = {}; 
     let activeChatReplyTarget = null; 
 
     const typingSentences = [
-      "동해물과 백두산이 마르고 닳도록 하나님이 보우하사 우리나라 만세",
-      "인생은 짧고 예술은 길다, 시간을 아껴 쓰고 최선을 다하자.",
-      "오늘의 노력이 내일의 큰 결실이 되어 찾아올 것입니다.",
-      "3학년 3반 친구들 모두 올해 원하는 바를 이루길 바라!",
-      "실패는 성공의 어머니이며 도전을 두려워하지 않는 자세가 중요하다.",
-      "끝날 때까지 끝난 게 아니다, 끝까지 포기하지 마세요."
+      "너의 모든 순간이 모여 눈부신 미래를 만들 거야",
+      "시작하기에 늦은 때란 없으며 지금이 가장 소중한 순간이다",
+      "작은 노력이 모여 커다란 기적을 만든다",
+      "마음속에 품은 꿈은 결코 사라지지 않는다",
+      "원하는 꿈을 향해 오늘도 한 걸음 걸어나가자",
+      "빛나는 미래는 스스로를 믿는 것에서 시작한다",
+      "너는 생각보다 훨씬 더 강하고 빛나는 존재야",
+      "뜨겁고 찬란하게 빛나는 우리의 청춘을 응원해",
+      "다시는 돌아오지 않을 오늘이라는 특별한 선물",
+      "지나가는 바람마저 설레는 우리는 푸른 청춘이다",
+      "가장 거친 파도가 멋진 항해사를 만든다",
+      "실패를 두려워하지 말고 지금 바로 도전해 보자",
+      "오늘 흘린 땀방울이 머지않아 너를 빛나게 할 거야",
+      "함께 웃고 울었던 우리의 모든 시간들을 기억해",
+      "먼 훗날 돌아보아도 미소 지을 아름다운 우리의 추억",
+      "너와 함께 걸어온 날들이 내게는 가장 큰 축복이야",
+      "언제나 같은 자리에서 응원해 주는 소중한 친구들",
+      "시간이 흘러도 변치 않을 우리들의 소중한 이야기"
     ];
     let typingStartTime = null;
     let currentSentence = "";
@@ -514,8 +383,6 @@
           const jongStrokes = [0, 1, 2, 2, 1, 2, 2, 1, 1, 2, 2, 2, 2, 2, 2, 2, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1];
 
           count += choStrokes[cho] + jungStrokes[jung] + jongStrokes[jong];
-        } else if ((code >= 0x3131 && code <= 0x318E)) {
-          count += 1;
         } else {
           count += 1;
         }
@@ -525,12 +392,7 @@
 
     function checkAdminAuth() {
       const inputPw = prompt("관리자 권한을 확인하기 위해 비밀번호를 입력해주세요:");
-      if (inputPw === ADMIN_PASSWORD) {
-        return true;
-      } else {
-        alert("비밀번호가 올바르지 않습니다.");
-        return false;
-      }
+      return inputPw === ADMIN_PASSWORD;
     }
 
     function login() {
@@ -585,88 +447,118 @@
       return `${now.getMonth() + 1}월 ${now.getDate()}일 ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     }
 
-    /* ==========================================
-       📌 PAGE 2. 채팅방 공지사항 고정 로직
-    ========================================== */
+    /* PAGE 2. 공지사항 */
     function loadNotice() {
       db.ref('notice').on('value', (snapshot) => {
         const noticeText = snapshot.val();
-        const displayElem = document.getElementById('chat-notice-display');
-        if (noticeText) {
-          displayElem.innerText = `📢 ${noticeText}`;
-        } else {
-          displayElem.innerText = "등록된 공지사항이 없습니다.";
-        }
+        document.getElementById('chat-notice-display').innerText = noticeText ? `📢 ${noticeText}` : "등록된 공지사항이 없습니다.";
       });
     }
 
     function manageNotice() {
       if (!checkAdminAuth()) return;
-
       db.ref('notice').once('value', (snapshot) => {
         const currentNotice = snapshot.val() || "";
         const action = prompt("원하는 작업을 선택하세요:\n1. 공지 등록/수정\n2. 공지 삭제", "1");
-
         if (action === "1") {
-          const newNotice = prompt("채팅방 상단에 고정할 공지사항을 입력하세요:", currentNotice);
-          if (newNotice !== null && newNotice.trim() !== "") {
-            db.ref('notice').set(newNotice.trim());
-          }
+          const newNotice = prompt("채팅방 상단 공지사항:", currentNotice);
+          if (newNotice !== null && newNotice.trim() !== "") db.ref('notice').set(newNotice.trim());
         } else if (action === "2") {
-          if (confirm("정말로 고정된 공지사항을 삭제하시겠습니까?")) {
-            db.ref('notice').remove();
-          }
+          if (confirm("정말로 공지사항을 삭제하시겠습니까?")) db.ref('notice').remove();
         }
       });
     }
 
-    /* ==========================================
-       📸 PAGE 1. 게시물 & 복수 선택 & 삭제 확인
-    ========================================== */
-    function updateFilePreview() {
-      const files = document.getElementById('post-files').files;
-      const previewText = document.getElementById('file-preview-text');
-      if (files.length === 0) {
-        previewText.innerText = "선택된 미디어 없음 (복수 선택 가능)";
-      } else {
-        previewText.innerText = `📷 선택된 미디어: 총 ${files.length}개`;
+    /* PAGE 1. 게시물 및 이미지 압축 업로드 */
+    function handleFileSelect(event) {
+      const files = Array.from(event.target.files);
+      selectedFiles = selectedFiles.concat(files);
+      renderFilePreviews();
+      event.target.value = '';
+    }
+
+    function removeSelectedFile(index) {
+      selectedFiles.splice(index, 1);
+      renderFilePreviews();
+    }
+
+    function renderFilePreviews() {
+      const container = document.getElementById('media-preview-container');
+      container.innerHTML = '';
+
+      selectedFiles.forEach((file, index) => {
+        const previewItem = document.createElement('div');
+        previewItem.className = 'preview-item';
+        const fileURL = URL.createObjectURL(file);
+        const isImage = file.type.startsWith('image');
+
+        previewItem.innerHTML = isImage 
+          ? `<img src="${fileURL}"><button class="preview-remove-btn" onclick="removeSelectedFile(${index})">✕</button>`
+          : `<video src="${fileURL}"></video><button class="preview-remove-btn" onclick="removeSelectedFile(${index})">✕</button>`;
+        container.appendChild(previewItem);
+      });
+    }
+
+    async function compressImageFile(file) {
+      if (!file.type.startsWith('image')) return file;
+      const options = { maxSizeMB: 0.3, maxWidthOrHeight: 1024, useWebWorker: true };
+      try {
+        if (window.imageCompression) {
+          return await window.imageCompression(file, options);
+        }
+        return file;
+      } catch (e) {
+        return file;
       }
     }
 
     async function uploadPost() {
-      const files = document.getElementById('post-files').files;
       const caption = document.getElementById('post-caption-input').value.trim();
-
-      if (files.length === 0 && !caption) {
+      if (selectedFiles.length === 0 && !caption) {
         alert('사진/동영상을 선택하거나 글을 입력해주세요!');
         return;
       }
 
-      const mediaPromises = Array.from(files).map(file => {
-        return new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onload = (e) => resolve({
-            url: e.target.result,
-            type: file.type.startsWith('image') ? 'image' : 'video'
+      const submitBtn = document.getElementById('post-submit-btn');
+      submitBtn.innerText = '업로드 중...';
+      submitBtn.disabled = true;
+
+      try {
+        const mediaPromises = selectedFiles.map(async (file) => {
+          let processedFile = file;
+          if (file.type.startsWith('image')) {
+            processedFile = await compressImageFile(file);
+          }
+          return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve({
+              url: e.target.result,
+              type: file.type.startsWith('image') ? 'image' : 'video'
+            });
+            reader.readAsDataURL(processedFile);
           });
-          reader.readAsDataURL(file);
         });
-      });
 
-      const mediaList = await Promise.all(mediaPromises);
+        const mediaList = await Promise.all(mediaPromises);
 
-      db.ref('posts').push({
-        author: currentUser,
-        caption: caption,
-        media: mediaList,
-        date: getFormattedDate(),
-        timestamp: firebase.database.ServerValue.TIMESTAMP,
-        likes: {}
-      }).then(() => {
-        document.getElementById('post-files').value = '';
+        await db.ref('posts').push({
+          author: currentUser,
+          caption: caption,
+          media: mediaList,
+          date: getFormattedDate(),
+          timestamp: firebase.database.ServerValue.TIMESTAMP,
+          likes: {}
+        });
+
+        selectedFiles = [];
         document.getElementById('post-caption-input').value = '';
-        updateFilePreview();
-      });
+        renderFilePreviews();
+      } catch(err) {
+        alert('업로드 중 오류가 발생했습니다.');
+      } finally {
+        submitBtn.innerText = '게시';
+        submitBtn.disabled = false;
+      }
     }
 
     function setPostSort(sortType) {
@@ -678,13 +570,8 @@
     }
 
     function filterPostsByTag(tag) {
-      if (tag) {
-        currentSearchTag = tag.replace('#', '').trim().toLowerCase();
-        document.getElementById('hashtag-search-input').value = currentSearchTag;
-      } else {
-        const inputVal = document.getElementById('hashtag-search-input').value.trim();
-        currentSearchTag = inputVal.replace('#', '').toLowerCase();
-      }
+      currentSearchTag = tag ? tag.replace('#', '').trim().toLowerCase() : document.getElementById('hashtag-search-input').value.trim().replace('#', '').toLowerCase();
+      document.getElementById('hashtag-search-input').value = currentSearchTag;
       renderPosts();
     }
 
@@ -695,10 +582,7 @@
     }
 
     function formatHashtags(text) {
-      const escaped = escapeHtml(text);
-      return escaped.replace(/#([가-힣a-zA-Z0-9_]+)/g, function(match, tagName) {
-        return `<span class="hashtag-link" onclick="filterPostsByTag('${tagName}')">#${tagName}</span>`;
-      });
+      return escapeHtml(text).replace(/#([가-힣a-zA-Z0-9_]+)/g, (match, tagName) => `<span class="hashtag-link" onclick="filterPostsByTag('${tagName}')">#${tagName}</span>`);
     }
 
     function loadPosts() {
@@ -711,19 +595,15 @@
     function renderPosts() {
       const feed = document.getElementById('feed-container');
       feed.innerHTML = '';
-
       let postKeys = Object.keys(rawPostsData);
+
       if (postKeys.length === 0) {
         feed.innerHTML = '<div style="text-align:center; color:#8e8e8e; padding:30px 0;">게시물이 없습니다. 첫 소식을 남겨보세요!</div>';
         return;
       }
 
       if (currentSearchTag !== '') {
-        postKeys = postKeys.filter(key => {
-          const caption = (rawPostsData[key].caption || '').toLowerCase();
-          return caption.includes(`#${currentSearchTag}`) || caption.includes(currentSearchTag);
-        });
-
+        postKeys = postKeys.filter(key => (rawPostsData[key].caption || '').toLowerCase().includes(currentSearchTag));
         if (postKeys.length === 0) {
           feed.innerHTML = `<div style="text-align:center; color:#8e8e8e; padding:30px 0;">'#${escapeHtml(currentSearchTag)}' 검색 결과가 없습니다.</div>`;
           return;
@@ -731,21 +611,13 @@
       }
 
       postKeys.sort((a, b) => {
-        const postA = rawPostsData[a];
-        const postB = rawPostsData[b];
-        const timeA = postA.timestamp || 0;
-        const timeB = postB.timestamp || 0;
+        const postA = rawPostsData[a], postB = rawPostsData[b];
+        const timeA = postA.timestamp || 0, timeB = postB.timestamp || 0;
         const likesA = postA.likes ? Object.keys(postA.likes).length : 0;
         const likesB = postB.likes ? Object.keys(postB.likes).length : 0;
 
-        if (currentPostSort === 'popular') {
-          if (likesB !== likesA) return likesB - likesA;
-          return timeB - timeA;
-        } else if (currentPostSort === 'oldest') {
-          return timeA - timeB;
-        } else {
-          return timeB - timeA;
-        }
+        if (currentPostSort === 'popular') return likesB !== likesA ? likesB - likesA : timeB - timeA;
+        return currentPostSort === 'oldest' ? timeA - timeB : timeB - timeA;
       });
 
       postKeys.forEach((postId) => {
@@ -759,24 +631,14 @@
 
         let mediaHtml = '';
         if (media.length > 0) {
-          let mediaItems = media.map((item, idx) => {
-            const activeClass = idx === 0 ? 'active' : '';
-            const downloadFileName = `download_${postId}_${idx + 1}.${item.type === 'image' ? 'png' : 'mp4'}`;
-            
-            return item.type === 'image'
-              ? `
-                <div class="media-item ${activeClass}" id="media-${postId}-${idx}">
-                  <img src="${item.url}" style="width:100%; height:100%; object-fit:contain;">
-                  <a href="${item.url}" download="${downloadFileName}" class="download-btn">💾 다운로드</a>
-                </div>
-              `
-              : `
-                <div class="media-item ${activeClass}" id="media-${postId}-${idx}">
-                  <video src="${item.url}" controls style="width:100%; height:100%; object-fit:contain;"></video>
-                  <a href="${item.url}" download="${downloadFileName}" class="download-btn">💾 다운로드</a>
-                </div>
-              `;
-          }).join('');
+          let mediaItems = media.map((item, idx) => `
+            <div class="media-item ${idx === 0 ? 'active' : ''}" id="media-${postId}-${idx}">
+              ${item.type === 'image' 
+                ? `<img src="${item.url}" style="width:100%; height:100%; object-fit:contain;">`
+                : `<video src="${item.url}" controls style="width:100%; height:100%; object-fit:contain;"></video>`}
+              <a href="${item.url}" download="download_${postId}_${idx + 1}" class="download-btn">💾 다운로드</a>
+            </div>
+          `).join('');
 
           mediaHtml = `
             <div class="media-slider">
@@ -786,8 +648,7 @@
                 <button class="slide-btn next" onclick="moveSlide('${postId}', 1, ${media.length})">❯</button>
                 <div class="slide-counter" id="counter-${postId}">1 / ${media.length}</div>
               ` : ''}
-            </div>
-          `;
+            </div>`;
         }
 
         let commentsHtml = '';
@@ -801,42 +662,30 @@
             if (comment.replies) {
               Object.keys(comment.replies).forEach((rId) => {
                 const reply = comment.replies[rId];
-                const isMyReply = reply.author === currentUser;
                 repliesHtml += `
-                  <div style="margin-bottom:4px; display:flex; justify-content:space-between; align-items:center;">
-                    <div>
-                      <span class="comment-author">${escapeHtml(reply.author)}</span>
-                      <span>${escapeHtml(reply.text)}</span>
-                    </div>
-                    <button class="action-btn del-btn" onclick="deleteReply('${postId}', '${cId}', '${rId}', '${escapeHtml(reply.author)}')">${isMyReply ? '삭제' : '관리자 삭제'}</button>
-                  </div>
-                `;
+                  <div style="margin-bottom:4px; display:flex; justify-content:space-between;">
+                    <div><span class="comment-author">${escapeHtml(reply.author)}</span><span>${escapeHtml(reply.text)}</span></div>
+                    <button class="action-btn del-btn" onclick="deleteReply('${postId}', '${cId}', '${rId}', '${escapeHtml(reply.author)}')">삭제</button>
+                  </div>`;
               });
             }
-
-            const isMyComment = comment.author === currentUser;
 
             commentsHtml += `
               <div class="comment-item">
                 <div class="comment-main">
-                  <div>
-                    <span class="comment-author">${escapeHtml(comment.author)}</span>
-                    <span>${escapeHtml(comment.text)}</span>
-                  </div>
+                  <div><span class="comment-author">${escapeHtml(comment.author)}</span><span>${escapeHtml(comment.text)}</span></div>
                   <div>
                     <button class="action-btn ${isCLiked ? 'liked' : ''}" onclick="toggleCommentLike('${postId}', '${cId}')">❤️ ${cLikesCount}</button>
                     <button class="action-btn" onclick="setReplyTarget('${postId}', '${cId}', '${escapeHtml(comment.author)}')">답글</button>
-                    <button class="action-btn del-btn" onclick="deleteComment('${postId}', '${cId}', '${escapeHtml(comment.author)}')">${isMyComment ? '삭제' : '관리자 삭제'}</button>
+                    <button class="action-btn del-btn" onclick="deleteComment('${postId}', '${cId}', '${escapeHtml(comment.author)}')">삭제</button>
                   </div>
                 </div>
                 ${repliesHtml ? `<div class="replies-list">${repliesHtml}</div>` : ''}
-              </div>
-            `;
+              </div>`;
           });
         }
 
         const isMyPost = post.author === currentUser;
-
         postCard.innerHTML = `
           <div class="post-header">
             <span class="post-author">👤 ${escapeHtml(post.author)}</span>
@@ -846,18 +695,14 @@
               <button style="background:none; border:none; color:#ff6b6b; font-size:0.75rem; cursor:pointer;" onclick="deletePost('${postId}', '${escapeHtml(post.author)}')">${isMyPost ? '삭제' : '관리자 삭제'}</button>
             </div>
           </div>
-
           ${mediaHtml}
-
-          ${post.caption ? `<div class="post-caption"><strong>${escapeHtml(post.author)}</strong> ${formatHashtags(post.caption)} ${post.isEdited ? '<span class="edited-mark">(수정됨)</span>' : ''}</div>` : ''}
-
+          ${post.caption ? `<div class="post-caption"><strong>${escapeHtml(post.author)}</strong> ${formatHashtags(post.caption)}</div>` : ''}
           <div class="post-footer">
             <div class="post-actions">
               <button class="like-btn" onclick="togglePostLike('${postId}')">${isLiked ? '❤️' : '🤍'}</button>
               <span class="like-count">좋아요 ${likesCount}개</span>
             </div>
           </div>
-
           <div class="comments-section">
             <div id="comments-list-${postId}">${commentsHtml}</div>
             <div class="comment-input-box">
@@ -865,9 +710,7 @@
               <button onclick="addComment('${postId}')">게시</button>
             </div>
             <div id="reply-indicator-${postId}" style="font-size:0.72rem; color:#0095f6; margin-top:4px;"></div>
-          </div>
-        `;
-
+          </div>`;
         feed.appendChild(postCard);
       });
     }
@@ -875,18 +718,9 @@
     function editPost(postId, oldCaption) {
       db.ref(`posts/${postId}`).once('value', (snap) => {
         const post = snap.val();
-        if (!post) return;
-        if (post.author !== currentUser) {
-          alert("본인의 게시물만 수정할 수 있습니다!");
-          return;
-        }
-
-        const newCaption = prompt("게시물 문구를 수정하세요:", oldCaption);
-        if (newCaption !== null && newCaption.trim() !== oldCaption) {
-          db.ref(`posts/${postId}`).update({
-            caption: newCaption.trim(),
-            isEdited: true
-          });
+        if (post && post.author === currentUser) {
+          const newCaption = prompt("게시물 문구를 수정하세요:", oldCaption);
+          if (newCaption !== null) db.ref(`posts/${postId}`).update({ caption: newCaption.trim() });
         }
       });
     }
@@ -902,19 +736,14 @@
 
     function togglePostLike(postId) {
       const likeRef = db.ref(`posts/${postId}/likes/${currentUser}`);
-      likeRef.once('value', (snap) => {
-        if (snap.exists()) likeRef.remove();
-        else likeRef.set(true);
-      });
+      likeRef.once('value', (snap) => snap.exists() ? likeRef.remove() : likeRef.set(true));
     }
 
     function setReplyTarget(postId, commentId, authorName) {
       activeReplyTarget[postId] = commentId;
-      document.getElementById(`reply-indicator-${postId}`).innerText = `@${authorName} 님에게 답글 작성 중 (취소: 클릭)`;
-      document.getElementById(`reply-indicator-${postId}`).onclick = () => {
-        delete activeReplyTarget[postId];
-        document.getElementById(`reply-indicator-${postId}`).innerText = '';
-      };
+      const ind = document.getElementById(`reply-indicator-${postId}`);
+      ind.innerText = `@${authorName} 님에게 답글 작성 중 (취소: 클릭)`;
+      ind.onclick = () => { delete activeReplyTarget[postId]; ind.innerText = ''; };
       document.getElementById(`comment-input-${postId}`).focus();
     }
 
@@ -922,69 +751,45 @@
       const input = document.getElementById(`comment-input-${postId}`);
       const text = input.value.trim();
       if (!text) return;
-
       const targetCommentId = activeReplyTarget[postId];
 
       if (targetCommentId) {
-        db.ref(`posts/${postId}/comments/${targetCommentId}/replies`).push({
-          author: currentUser,
-          text: text,
-          timestamp: firebase.database.ServerValue.TIMESTAMP
-        }).then(() => {
-          input.value = '';
-          delete activeReplyTarget[postId];
-          document.getElementById(`reply-indicator-${postId}`).innerText = '';
+        db.ref(`posts/${postId}/comments/${targetCommentId}/replies`).push({ author: currentUser, text: text, timestamp: firebase.database.ServerValue.TIMESTAMP }).then(() => {
+          input.value = ''; delete activeReplyTarget[postId]; document.getElementById(`reply-indicator-${postId}`).innerText = '';
         });
       } else {
-        db.ref(`posts/${postId}/comments`).push({
-          author: currentUser,
-          text: text,
-          timestamp: firebase.database.ServerValue.TIMESTAMP,
-          likes: {}
-        }).then(() => { input.value = ''; });
+        db.ref(`posts/${postId}/comments`).push({ author: currentUser, text: text, timestamp: firebase.database.ServerValue.TIMESTAMP, likes: {} }).then(() => { input.value = ''; });
       }
     }
 
     function toggleCommentLike(postId, commentId) {
       const likeRef = db.ref(`posts/${postId}/comments/${commentId}/likes/${currentUser}`);
-      likeRef.once('value', (snap) => {
-        if (snap.exists()) likeRef.remove();
-        else likeRef.set(true);
-      });
+      likeRef.once('value', (snap) => snap.exists() ? likeRef.remove() : likeRef.set(true));
     }
 
-    /* 🗑️ 게시물, 댓글, 대댓글 삭제 시 확인창 적용 */
     function deleteComment(postId, commentId, author) {
-      if (author === currentUser || checkAdminAuth()) {
-        if (confirm("정말로 이 댓글을 삭제하시겠습니까?")) {
-          db.ref(`posts/${postId}/comments/${commentId}`).remove();
-        }
+      if ((author === currentUser || checkAdminAuth()) && confirm("이 댓글을 삭제하시겠습니까?")) {
+        db.ref(`posts/${postId}/comments/${commentId}`).remove();
       }
     }
 
     function deleteReply(postId, commentId, replyId, author) {
-      if (author === currentUser || checkAdminAuth()) {
-        if (confirm("정말로 이 답글을 삭제하시겠습니까?")) {
-          db.ref(`posts/${postId}/comments/${commentId}/replies/${replyId}`).remove();
-        }
+      if ((author === currentUser || checkAdminAuth()) && confirm("이 답글을 삭제하시겠습니까?")) {
+        db.ref(`posts/${postId}/comments/${commentId}/replies/${replyId}`).remove();
       }
     }
 
     function deletePost(postId, author) {
-      if (author === currentUser || checkAdminAuth()) {
-        if (confirm("정말로 이 게시물을 삭제하시겠습니까? (복구할 수 없습니다)")) {
-          db.ref(`posts/${postId}`).remove();
-        }
+      if ((author === currentUser || checkAdminAuth()) && confirm("게시물을 삭제하시겠습니까?")) {
+        db.ref(`posts/${postId}`).remove();
       }
     }
 
-    /* ==========================================
-       💬 PAGE 2. 실시간 채팅 로직
-    ========================================== */
+    /* PAGE 2. 채팅 */
     function prepareChatReply(author, text) {
       activeChatReplyTarget = { author, text };
       document.getElementById('chat-reply-bar').style.display = 'flex';
-      document.getElementById('chat-reply-text').innerText = `↩️ ${author}님에게 답장: "${text.substring(0, 15)}${text.length > 15 ? '...' : ''}"`;
+      document.getElementById('chat-reply-text').innerText = `↩️ ${author}님에게 답장: "${text.substring(0, 15)}..."`;
       document.getElementById('chat-input').focus();
     }
 
@@ -998,48 +803,26 @@
       const text = input.value.trim();
       if (!text) return;
 
-      const msgData = {
-        author: currentUser,
-        text: text,
-        date: getFormattedDate(),
-        timestamp: firebase.database.ServerValue.TIMESTAMP
-      };
-
-      if (activeChatReplyTarget) {
-        msgData.replyTo = activeChatReplyTarget;
-      }
+      const msgData = { author: currentUser, text: text, date: getFormattedDate(), timestamp: firebase.database.ServerValue.TIMESTAMP };
+      if (activeChatReplyTarget) msgData.replyTo = activeChatReplyTarget;
 
       db.ref('chats').push(msgData).then(() => {
-        input.value = '';
-        cancelChatReply();
+        input.value = ''; cancelChatReply();
       });
     }
 
     function editChatMessage(chatId, oldText) {
       db.ref(`chats/${chatId}`).once('value', (snap) => {
-        const msg = snap.val();
-        if (!msg) return;
-        if (msg.author !== currentUser) {
-          alert("본인의 메시지만 수정할 수 있습니다!");
-          return;
-        }
-
-        const newText = prompt("채팅 메시지를 수정하세요:", oldText);
-        if (newText !== null && newText.trim() !== oldText) {
-          db.ref(`chats/${chatId}`).update({
-            text: newText.trim(),
-            isEdited: true
-          });
+        if (snap.val() && snap.val().author === currentUser) {
+          const newText = prompt("메시지를 수정하세요:", oldText);
+          if (newText !== null) db.ref(`chats/${chatId}`).update({ text: newText.trim(), isEdited: true });
         }
       });
     }
 
-    /* 🗑️ 채팅 메시지 삭제 시 확인창 적용 */
     function deleteChatMessage(chatId, author) {
-      if (author === currentUser || checkAdminAuth()) {
-        if (confirm("정말로 이 채팅 메시지를 삭제하시겠습니까?")) {
-          db.ref(`chats/${chatId}`).remove();
-        }
+      if ((author === currentUser || checkAdminAuth()) && confirm("이 메시지를 삭제하시겠습니까?")) {
+        db.ref(`chats/${chatId}`).remove();
       }
     }
 
@@ -1057,31 +840,19 @@
           const groupDiv = document.createElement('div');
           groupDiv.className = `msg-group ${isMyMsg ? 'my-msg' : 'other-msg'}`;
 
-          let replyQuoteHtml = '';
-          if (msg.replyTo && msg.replyTo.author && msg.replyTo.text) {
-            replyQuoteHtml = `<div class="reply-quote-box"><strong>${escapeHtml(msg.replyTo.author)}</strong>: ${escapeHtml(msg.replyTo.text)}</div>`;
-          }
-
-          let msgDateText = msg.date;
-          if (!msgDateText && msg.timestamp) {
-            const d = new Date(msg.timestamp);
-            msgDateText = `${d.getMonth() + 1}월 ${d.getDate()}일 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-          } else if (!msgDateText) {
-            msgDateText = '';
-          }
+          let replyQuoteHtml = msg.replyTo ? `<div class="reply-quote-box"><strong>${escapeHtml(msg.replyTo.author)}</strong>: ${escapeHtml(msg.replyTo.text)}</div>` : '';
 
           groupDiv.innerHTML = `
             ${!isMyMsg ? `<div class="msg-author">${escapeHtml(msg.author)}</div>` : ''}
             <div class="msg-bubble-wrap">
               <div class="msg-bubble">${replyQuoteHtml}<span>${escapeHtml(msg.text)}</span>${msg.isEdited ? '<span class="edited-mark">(수정됨)</span>' : ''}</div>
-              <span class="msg-time">${msgDateText}</span>
+              <span class="msg-time">${msg.date || ''}</span>
               <div class="msg-btn-group">
                 <button class="chat-action-btn" onclick="prepareChatReply('${escapeHtml(msg.author)}', '${escapeHtml(msg.text)}')">답장</button>
                 ${isMyMsg ? `<button class="chat-action-btn edit" onclick="editChatMessage('${chatId}', '${escapeHtml(msg.text)}')">수정</button>` : ''}
-                <button class="chat-action-btn del" onclick="deleteChatMessage('${chatId}', '${escapeHtml(msg.author)}')">${isMyMsg ? '삭제' : '관리자 삭제'}</button>
+                <button class="chat-action-btn del" onclick="deleteChatMessage('${chatId}', '${escapeHtml(msg.author)}')">삭제</button>
               </div>
-            </div>
-          `;
+            </div>`;
           chatContainer.appendChild(groupDiv);
         });
         scrollToBottom();
@@ -1093,9 +864,7 @@
       setTimeout(() => { chatContainer.scrollTop = chatContainer.scrollHeight; }, 50);
     }
 
-    /* ==========================================
-       ⌨️ PAGE 3. 타자 게임 및 랭킹 로직
-    ========================================== */
+    /* PAGE 3. 타자 게임 */
     function initTypingGame() {
       nextTypingSentence();
     }
@@ -1104,19 +873,35 @@
       const randIdx = Math.floor(Math.random() * typingSentences.length);
       currentSentence = typingSentences[randIdx];
       document.getElementById('typing-prompt').innerText = currentSentence;
-      const input = document.getElementById('typing-input');
-      input.value = '';
+      document.getElementById('typing-input').value = '';
       document.getElementById('current-cpm').innerText = '0';
       typingStartTime = null;
     }
 
+    /* 수동 초기화 버튼 클릭 동작 */
+    function manualResetTyping() {
+      if (confirm("작성 중인 타자 내용과 실시간 타수가 초기화됩니다. 정말 초기화하시겠습니까?")) {
+        document.getElementById('typing-input').value = '';
+        document.getElementById('current-cpm').innerText = '0';
+        typingStartTime = null;
+        document.getElementById('typing-input').focus();
+      }
+    }
+
     function handleTypingInput() {
       const inputVal = document.getElementById('typing-input').value;
-      if (!typingStartTime && inputVal.length > 0) {
+
+      if (!inputVal) {
+        document.getElementById('current-cpm').innerText = '0';
+        typingStartTime = null;
+        return;
+      }
+
+      if (!typingStartTime) {
         typingStartTime = new Date();
       }
 
-      if (typingStartTime && inputVal.length > 0) {
+      if (typingStartTime) {
         const elapsedTime = (new Date() - typingStartTime) / 1000 / 60;
         const keystrokes = countHancomKeystrokes(inputVal);
         const cpm = Math.round(keystrokes / elapsedTime);
@@ -1126,16 +911,19 @@
 
     function checkTypingResult() {
       const inputVal = document.getElementById('typing-input').value.trim();
+      if (!inputVal) return;
+
       if (inputVal === currentSentence) {
-        const elapsedTime = (new Date() - typingStartTime) / 1000 / 60;
+        if (!typingStartTime) typingStartTime = new Date();
+        const elapsedTime = Math.max((new Date() - typingStartTime) / 1000 / 60, 0.001);
         const keystrokes = countHancomKeystrokes(currentSentence);
         const finalCPM = Math.round(keystrokes / elapsedTime);
 
-        alert(`🎉 완벽하게 입력했습니다!\n최종 타수: ${finalCPM} 타/분`);
+        alert(`🎉 축하합니다! 완벽하게 입력했습니다.\n최종 타수: ${finalCPM} 타/분`);
         saveTypingScore(finalCPM);
         nextTypingSentence();
       } else {
-        alert("문장이 정확히 일치하지 않습니다. 다시 확인해주세요!");
+        alert("⚠️ 제시된 문장과 일치하지 않습니다. 오타를 수정하거나 [초기화] 버튼을 눌러주세요.");
       }
     }
 
@@ -1168,20 +956,14 @@
         }
 
         const ranks = [];
-        snapshot.forEach((childSnap) => {
-          ranks.push(childSnap.val());
-        });
-
+        snapshot.forEach((childSnap) => ranks.push(childSnap.val()));
         ranks.sort((a, b) => b.score - a.score);
 
         ranks.slice(0, 10).forEach((rank, idx) => {
           const medal = idx === 0 ? '🥇 ' : idx === 1 ? '🥈 ' : idx === 2 ? '🥉 ' : `${idx + 1}. `;
           const li = document.createElement('li');
           li.className = 'ranking-item';
-          li.innerHTML = `
-            <span>${medal}${escapeHtml(rank.name)}</span>
-            <span><strong>${rank.score}</strong> 타/분</span>
-          `;
+          li.innerHTML = `<span>${medal}${escapeHtml(rank.name)}</span><span><strong>${rank.score}</strong> 타/분</span>`;
           rankingList.appendChild(li);
 
           if (rank.name === currentUser && rank.score > userBestCPM) {
@@ -1193,9 +975,7 @@
     }
 
     function resetTypingRanking() {
-      if (!checkAdminAuth()) return;
-
-      if (confirm("정말로 모든 타자 랭킹 데이터를 초기화하시겠습니까?")) {
+      if (checkAdminAuth() && confirm("정말로 모든 타자 랭킹 데이터를 초기화하시겠습니까?")) {
         db.ref('typing_ranks').remove().then(() => {
           alert("타자 랭킹이 성공적으로 초기화되었습니다.");
           userBestCPM = 0;
@@ -1208,6 +988,36 @@
       if (!text) return '';
       return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
     }
+
+    // 전역 스코프 연결
+    window.login = login;
+    window.changeNickname = changeNickname;
+    window.switchPage = switchPage;
+    window.manageNotice = manageNotice;
+    window.handleFileSelect = handleFileSelect;
+    window.removeSelectedFile = removeSelectedFile;
+    window.uploadPost = uploadPost;
+    window.setPostSort = setPostSort;
+    window.filterPostsByTag = filterPostsByTag;
+    window.resetHashtagFilter = resetHashtagFilter;
+    window.editPost = editPost;
+    window.deletePost = deletePost;
+    window.moveSlide = moveSlide;
+    window.togglePostLike = togglePostLike;
+    window.setReplyTarget = setReplyTarget;
+    window.addComment = addComment;
+    window.toggleCommentLike = toggleCommentLike;
+    window.deleteComment = deleteComment;
+    window.deleteReply = deleteReply;
+    window.prepareChatReply = prepareChatReply;
+    window.cancelChatReply = cancelChatReply;
+    window.sendChatMessage = sendChatMessage;
+    window.editChatMessage = editChatMessage;
+    window.deleteChatMessage = deleteChatMessage;
+    window.handleTypingInput = handleTypingInput;
+    window.checkTypingResult = checkTypingResult;
+    window.manualResetTyping = manualResetTyping;
+    window.resetTypingRanking = resetTypingRanking;
   </script>
 </body>
 </html>
